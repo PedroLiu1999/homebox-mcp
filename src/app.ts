@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express, {
   type Express,
   type NextFunction,
@@ -20,6 +22,61 @@ import { HomeboxOAuthProvider } from "./oauth/provider.js";
 import { SqliteStore } from "./storage/sqlite.js";
 
 const DEFAULT_PRUNE_INTERVAL_MS = 15 * 60 * 1000;
+const LOGO_ASSETS_DIR = fileURLToPath(
+  new URL("../assets/logo", import.meta.url),
+);
+
+const BRAND_ASSET_ROUTES: ReadonlyArray<{
+  route: string;
+  relativePath: string;
+  contentType: string;
+}> = [
+  {
+    route: "/favicon.ico",
+    relativePath: "variants/favicon.ico",
+    contentType: "image/x-icon",
+  },
+  {
+    route: "/favicon.svg",
+    relativePath: "variants/favicon.svg",
+    contentType: "image/svg+xml",
+  },
+  {
+    route: "/apple-touch-icon.png",
+    relativePath: "variants/apple-touch-icon.png",
+    contentType: "image/png",
+  },
+  {
+    route: "/icon-192.png",
+    relativePath: "variants/icon-192.png",
+    contentType: "image/png",
+  },
+  {
+    route: "/icon-512.png",
+    relativePath: "variants/icon-512.png",
+    contentType: "image/png",
+  },
+  {
+    route: "/maskable-512.png",
+    relativePath: "variants/maskable-512.png",
+    contentType: "image/png",
+  },
+  {
+    route: "/site.webmanifest",
+    relativePath: "variants/site.webmanifest",
+    contentType: "application/manifest+json",
+  },
+  {
+    route: "/logo.svg",
+    relativePath: "homebox-mcp-symbol.svg",
+    contentType: "image/svg+xml",
+  },
+  {
+    route: "/logo.png",
+    relativePath: "png/homebox-mcp-symbol.png",
+    contentType: "image/png",
+  },
+];
 
 export interface AppRuntime {
   app: Express;
@@ -40,6 +97,7 @@ export function createAppRuntime(
   app.disable("x-powered-by");
   app.use(
     helmet({
+      referrerPolicy: { policy: "strict-origin-when-cross-origin" },
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
@@ -71,7 +129,16 @@ export function createAppRuntime(
     }
 
     const origin = req.headers.origin;
-    if (origin !== undefined && origin.toLowerCase() !== expectedOrigin) {
+    const secFetchSite = req.headers["sec-fetch-site"];
+    const isSameOriginNull =
+      origin?.toLowerCase() === "null" &&
+      typeof secFetchSite === "string" &&
+      secFetchSite.toLowerCase() === "same-origin";
+    if (
+      origin !== undefined &&
+      origin.toLowerCase() !== expectedOrigin &&
+      !isSameOriginNull
+    ) {
       res.status(403).json({ error: "Forbidden: invalid Origin header" });
       return;
     }
@@ -94,6 +161,19 @@ export function createAppRuntime(
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok" });
   });
+
+  for (const asset of BRAND_ASSET_ROUTES) {
+    const filePath = path.join(LOGO_ASSETS_DIR, asset.relativePath);
+    app.get(asset.route, (_req, res, next) => {
+      res.type(asset.contentType);
+      res.set("Cache-Control", "public, max-age=86400");
+      res.sendFile(filePath, (err) => {
+        if (err) {
+          next(err);
+        }
+      });
+    });
+  }
 
   const createIpRateLimiter = (windowMs: number, limit: number) =>
     rateLimit({
@@ -150,6 +230,7 @@ export function createAppRuntime(
     const homeboxClient = new HomeboxClient(config.homeboxUrl, homeboxApiKey);
     const server = createHomeboxMcpServer({
       homeboxClient,
+      publicUrl: issuerUrl.origin,
       onUnauthorized: grantId
         ? () => store.revokeGrant(grantId, Math.floor(Date.now() / 1000))
         : undefined,

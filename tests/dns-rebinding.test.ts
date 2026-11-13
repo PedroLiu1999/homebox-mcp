@@ -121,6 +121,28 @@ describe("DNS-rebinding protection (Host and Origin validation)", () => {
     });
     expect(nullOrigin.status).toBe(403);
 
+    const crossSiteNullOrigin = await sendRawHttpRequest(harness.baseUrl, {
+      path: "/mcp",
+      method: "POST",
+      headers: {
+        host: "mcp.example.com",
+        origin: "null",
+        "sec-fetch-site": "cross-site",
+      },
+    });
+    expect(crossSiteNullOrigin.status).toBe(403);
+
+    const sameOriginNull = await sendRawHttpRequest(harness.baseUrl, {
+      path: "/mcp",
+      method: "POST",
+      headers: {
+        host: "mcp.example.com",
+        origin: "null",
+        "sec-fetch-site": "same-origin",
+      },
+    });
+    expect(sameOriginNull.status).toBe(401);
+
     const matchingOrigin = await sendRawHttpRequest(harness.baseUrl, {
       path: "/mcp",
       method: "POST",
