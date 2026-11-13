@@ -86,6 +86,108 @@ describe("OAuth 2.1 DCR, PKCE authorization, and API key login", () => {
     expect(client.redirect_uris).toEqual(["http://127.0.0.1:9999/callback"]);
   });
 
+  it("POST /register allows https and loopback http redirect URIs and rejects non-loopback http or other schemes", async () => {
+    harness = await startTestServer();
+
+    for (const badUri of [
+      "http://example.com/callback",
+      "http://192.168.1.10:8080/callback",
+      "http://localhost.evil.com/callback",
+      "ftp://example.com/callback",
+      "custom://callback",
+    ]) {
+      const res = await fetch(`${harness.baseUrl}/register`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          client_name: "Bad Redirect Client",
+          redirect_uris: [badUri],
+        }),
+      });
+      expect(res.status, `Expected 400 for ${badUri}`).toBe(400);
+    }
+
+    for (const goodUri of [
+      "https://claude.ai/api/mcp/auth_callback",
+      "http://localhost/callback",
+      "http://localhost:8080/callback",
+      "http://127.0.0.1:9999/callback",
+      "http://[::1]:3000/callback",
+      "http://[::1]/callback",
+    ]) {
+      const res = await fetch(`${harness.baseUrl}/register`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          client_name: "Good Redirect Client",
+          redirect_uris: [goodUri],
+          token_endpoint_auth_method: "none",
+        }),
+      });
+      expect(res.status, `Expected 201 for ${goodUri}`).toBe(201);
+    }
+  });
+
+  it("POST /register caps redirect_uris at 10 entries", async () => {
+    harness = await startTestServer();
+
+    const tenUris = Array.from(
+      { length: 10 },
+      (_, i) => `https://app.example.com/callback/${i}`,
+    );
+    const okRes = await fetch(`${harness.baseUrl}/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_name: "Ten URIs Client",
+        redirect_uris: tenUris,
+        token_endpoint_auth_method: "none",
+      }),
+    });
+    expect(okRes.status).toBe(201);
+
+    const elevenUris = [
+      ...tenUris,
+      "https://app.example.com/callback/10",
+    ];
+    const tooManyRes = await fetch(`${harness.baseUrl}/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_name: "Eleven URIs Client",
+        redirect_uris: elevenUris,
+        token_endpoint_auth_method: "none",
+      }),
+    });
+    expect(tooManyRes.status).toBe(400);
+  });
+
+  it("POST /register caps client_name at 200 characters", async () => {
+    harness = await startTestServer();
+
+    const okRes = await fetch(`${harness.baseUrl}/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_name: "a".repeat(200),
+        redirect_uris: ["https://app.example.com/callback"],
+        token_endpoint_auth_method: "none",
+      }),
+    });
+    expect(okRes.status).toBe(201);
+
+    const tooLongRes = await fetch(`${harness.baseUrl}/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_name: "a".repeat(201),
+        redirect_uris: ["https://app.example.com/callback"],
+        token_endpoint_auth_method: "none",
+      }),
+    });
+    expect(tooLongRes.status).toBe(400);
+  });
+
   it("GET /authorize validates OAuth/PKCE params and renders a CSRF-protected login form", async () => {
     harness = await startTestServer();
     const { client_id } = await registerTestClient(harness.baseUrl);
