@@ -3,6 +3,13 @@ services:
     # Set IMAGE in .env to your GHCR repository, e.g. ghcr.io/your-user/homebox-mcp:latest
     image: ${IMAGE:-ghcr.io/owner/homebox-mcp:latest}
     restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     environment:
@@ -11,6 +18,7 @@ services:
       MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-http://localhost:3000}
       TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:?TOKEN_ENCRYPTION_KEY is required}
       DATABASE_PATH: /data/homebox-mcp.db
+      TRUST_PROXY: ${TRUST_PROXY:-1}
     volumes:
       - homebox_mcp_data:/data
     healthcheck:
