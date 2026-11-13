@@ -45,6 +45,16 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ## Running with Docker Compose
 
+### Option 1: Interactive Quick Start Wizard
+
+Run the interactive setup wizard to configure `.env`, generate `TOKEN_ENCRYPTION_KEY`, pull the pre-built GHCR image, and start the stack:
+
+```bash
+./scripts/quickstart.sh
+```
+
+### Option 2: Manual Setup
+
 1. Copy `.env.example` to `.env` and fill in your values:
 
    ```bash
