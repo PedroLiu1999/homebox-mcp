@@ -68,6 +68,7 @@ export async function startTestServer(
     homeboxUrl,
     databasePath,
     tokenEncryptionKey: DEFAULT_TEST_ENCRYPTION_KEY,
+    trustProxy: 1,
     ...overrides,
   };
 

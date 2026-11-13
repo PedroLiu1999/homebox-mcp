@@ -14,6 +14,8 @@ import { SqliteStore } from "./storage/sqlite.js";
 
 export function createApp(config: AppConfig): Express {
   const app = express();
+  app.set("trust proxy", config.trustProxy);
+
   const issuerUrl = new URL(config.mcpPublicUrl);
   const expectedHost = issuerUrl.host.toLowerCase();
   const expectedOrigin = issuerUrl.origin.toLowerCase();
