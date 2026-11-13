@@ -1,0 +1,3 @@
+# Open Dynamic Client Registration with Redirect URI Constraints
+
+`homebox-mcp` keeps OAuth 2.1 Dynamic Client Registration (`/register`) unauthenticated rather than requiring an initial access token or pre-registered client IDs, because standard MCP clients (such as Claude and Cursor) expect zero-config DCR discovery. To mitigate open-registration abuse without breaking MCP client compatibility, `/register` restricts `redirect_uris` to `https://` or loopback (`http://localhost`, `http://127.0.0.1`, `http://[::1]`), caps metadata sizes (`redirect_uris` and `client_name` length), and applies strict per-IP rate limiting.
