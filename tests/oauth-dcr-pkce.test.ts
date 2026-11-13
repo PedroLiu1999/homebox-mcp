@@ -98,7 +98,10 @@ describe("OAuth 2.1 DCR, PKCE authorization, and API key login", () => {
     ]) {
       const res = await fetch(`${harness.baseUrl}/register`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "x-forwarded-for": "198.51.100.10",
+        },
         body: JSON.stringify({
           client_name: "Bad Redirect Client",
           redirect_uris: [badUri],
@@ -117,7 +120,10 @@ describe("OAuth 2.1 DCR, PKCE authorization, and API key login", () => {
     ]) {
       const res = await fetch(`${harness.baseUrl}/register`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "x-forwarded-for": "198.51.100.20",
+        },
         body: JSON.stringify({
           client_name: "Good Redirect Client",
           redirect_uris: [goodUri],

@@ -5,6 +5,7 @@ import express, {
   type Response,
 } from "express";
 import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
 import {
@@ -94,13 +95,30 @@ export function createAppRuntime(
     res.status(200).json({ status: "ok" });
   });
 
+  const createIpRateLimiter = (windowMs: number, limit: number) =>
+    rateLimit({
+      windowMs,
+      limit,
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+    });
+
+  const loginLimiter = createIpRateLimiter(15 * 60 * 1000, 10);
+  const registerLimiter = createIpRateLimiter(60 * 60 * 1000, 10);
+  const tokenLimiter = createIpRateLimiter(15 * 60 * 1000, 30);
+  const mcpLimiter = createIpRateLimiter(60 * 1000, 120);
+
   app.post(
     "/authorize/login",
+    loginLimiter,
     express.urlencoded({ extended: false, limit: "16kb" }),
     (req, res, next) => {
       void provider.handleAuthorizeLogin(req, res).catch(next);
     },
   );
+
+  app.use("/register", registerLimiter);
+  app.use("/token", tokenLimiter);
 
   app.use(
     mcpAuthRouter({
@@ -108,6 +126,8 @@ export function createAppRuntime(
       issuerUrl,
       resourceServerUrl: issuerUrl,
       resourceName: "Homebox MCP Server",
+      clientRegistrationOptions: { rateLimit: false },
+      tokenOptions: { rateLimit: false },
     }),
   );
 
@@ -116,7 +136,7 @@ export function createAppRuntime(
     resourceMetadataUrl,
   });
 
-  app.all("/mcp", bearerAuth, async (req, res, next) => {
+  app.all("/mcp", mcpLimiter, bearerAuth, async (req, res, next) => {
     const extra = req.auth?.extra as
       | { homeboxApiKey?: string; grantId?: string }
       | undefined;
