@@ -23,7 +23,10 @@ import {
   hashToken,
   timingSafeEqualStrings,
 } from "../crypto.js";
-import { verifyHomeboxApiKey } from "../homebox/client.js";
+import {
+  loginAndMintHomeboxApiKey,
+  verifyHomeboxApiKey,
+} from "../homebox/client.js";
 import type { SqliteStore } from "../storage/sqlite.js";
 import { renderAuthorizePage } from "./authorize-page.js";
 
@@ -149,36 +152,65 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
     const clientName = client?.client_name ?? pending.clientId;
     const rawApiKey =
       typeof body.api_key === "string" ? body.api_key.trim() : "";
+    const username =
+      typeof body.username === "string" ? body.username.trim() : "";
+    const password = typeof body.password === "string" ? body.password : "";
 
-    if (!rawApiKey.startsWith("hb_")) {
+    const sendError = (status: number, errorMessage: string): void => {
       const html = renderAuthorizePage({
         requestId: pending.requestId,
         csrfToken: pending.csrfToken,
         clientName,
         scopes: pending.scopes,
-        errorMessage: "Please enter a valid Homebox API key (starts with hb_).",
+        errorMessage,
       });
-      res.status(400).type("html").send(html);
-      return;
-    }
+      res.status(status).type("html").send(html);
+    };
 
-    const userInfo = await verifyHomeboxApiKey(this.homeboxUrl, rawApiKey);
-    if (!userInfo) {
-      const html = renderAuthorizePage({
-        requestId: pending.requestId,
-        csrfToken: pending.csrfToken,
+    let resolvedApiKey: string;
+    let homeboxUserId: string | null = null;
+
+    if (rawApiKey) {
+      if (!rawApiKey.startsWith("hb_")) {
+        sendError(400, "Please enter a valid Homebox API key (starts with hb_).");
+        return;
+      }
+
+      const userInfo = await verifyHomeboxApiKey(this.homeboxUrl, rawApiKey);
+      if (!userInfo) {
+        sendError(401, "Invalid Homebox API key. Verification failed.");
+        return;
+      }
+
+      resolvedApiKey = rawApiKey;
+      homeboxUserId = userInfo.userId ?? null;
+    } else if (username && password) {
+      const mintResult = await loginAndMintHomeboxApiKey(this.homeboxUrl, {
+        username,
+        password,
         clientName,
-        scopes: pending.scopes,
-        errorMessage: "Invalid Homebox API key. Verification failed.",
       });
-      res.status(401).type("html").send(html);
+      if (!mintResult.ok) {
+        sendError(mintResult.status, mintResult.message);
+        return;
+      }
+
+      resolvedApiKey = mintResult.apiKey;
+    } else {
+      sendError(
+        400,
+        "Please enter your Homebox username and password, or a valid Homebox API key (starts with hb_).",
+      );
       return;
     }
 
     this.store.deletePendingAuthRequest(pending.requestId);
 
     const code = generateOpaqueToken(32);
-    const encryptedHomeboxKey = encryptSecret(rawApiKey, this.encryptionKey);
+    const encryptedHomeboxKey = encryptSecret(
+      resolvedApiKey,
+      this.encryptionKey,
+    );
     this.store.saveAuthorizationCode({
       codeHash: hashToken(code),
       clientId: pending.clientId,
@@ -187,7 +219,7 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
       scopes: pending.scopes,
       resource: pending.resource,
       encryptedHomeboxKey,
-      homeboxUserId: userInfo.userId ?? null,
+      homeboxUserId,
       expiresAt: now + AUTH_CODE_TTL_SECONDS,
     });
 
