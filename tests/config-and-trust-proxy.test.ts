@@ -1,5 +1,5 @@
 import { mkdtempSync, rmSync } from "node:fs";
-import { createServer, type Server } from "node:http";
+import { createServer, request as httpRequest, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -135,23 +135,50 @@ describe("Express trust proxy wiring", () => {
       rmSync(tempDir, { recursive: true, force: true });
     });
 
-    return { app, baseUrl: `http://127.0.0.1:${port}` };
+    return { app, port };
+  }
+
+  function probeGet(
+    port: number,
+    headers: Record<string, string>,
+  ): Promise<{ status: number; body: string }> {
+    return new Promise((resolve, reject) => {
+      const req = httpRequest(
+        {
+          hostname: "127.0.0.1",
+          port,
+          path: "/__test-ip",
+          method: "GET",
+          headers,
+        },
+        (res) => {
+          const chunks: Buffer[] = [];
+          res.on("data", (chunk: Buffer) => chunks.push(chunk));
+          res.on("end", () => {
+            resolve({
+              status: res.statusCode ?? 0,
+              body: Buffer.concat(chunks).toString("utf8"),
+            });
+          });
+        },
+      );
+      req.on("error", reject);
+      req.end();
+    });
   }
 
   it("resolves req.ip and req.protocol from X-Forwarded-For when trustProxy is 1", async () => {
-    const { app, baseUrl } = await startProbeServer(1);
+    const { app, port } = await startProbeServer(1);
     expect(app.get("trust proxy")).toBe(1);
 
-    const res = await fetch(`${baseUrl}/__test-ip`, {
-      headers: {
-        host: "127.0.0.1:3000",
-        "x-forwarded-for": "198.51.100.10, 203.0.113.195",
-        "x-forwarded-proto": "https",
-      },
+    const res = await probeGet(port, {
+      host: "127.0.0.1:3000",
+      "x-forwarded-for": "198.51.100.10, 203.0.113.195",
+      "x-forwarded-proto": "https",
     });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
+    const body = JSON.parse(res.body) as {
       ip: string;
       ips: string[];
       protocol: string;
@@ -162,19 +189,17 @@ describe("Express trust proxy wiring", () => {
   });
 
   it("ignores X-Forwarded-For when trustProxy is false", async () => {
-    const { app, baseUrl } = await startProbeServer(false);
+    const { app, port } = await startProbeServer(false);
     expect(app.get("trust proxy")).toBe(false);
 
-    const res = await fetch(`${baseUrl}/__test-ip`, {
-      headers: {
-        host: "127.0.0.1:3000",
-        "x-forwarded-for": "203.0.113.195",
-        "x-forwarded-proto": "https",
-      },
+    const res = await probeGet(port, {
+      host: "127.0.0.1:3000",
+      "x-forwarded-for": "203.0.113.195",
+      "x-forwarded-proto": "https",
     });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
+    const body = JSON.parse(res.body) as {
       ip: string;
       ips: string[];
       protocol: string;
