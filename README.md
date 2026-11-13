@@ -47,13 +47,11 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ### Option 1: Interactive Quick Start Wizard (No Clone Required)
 
-Create a directory for your deployment, download the setup wizard, and run it — it will configure `.env`, generate `TOKEN_ENCRYPTION_KEY`, download `docker-compose.yml`, pull the pre-built GHCR image, and start the stack:
+Create a directory for your deployment and run the setup wizard directly — it will configure `.env`, generate `TOKEN_ENCRYPTION_KEY`, download `docker-compose.yml`, pull the pre-built GHCR image, and start the stack:
 
 ```bash
 mkdir -p homebox-mcp && cd homebox-mcp
-curl -fsSLO https://raw.githubusercontent.com/PedroLiu1999/homebox-mcp/main/scripts/quickstart.sh
-chmod +x quickstart.sh
-./quickstart.sh
+bash <(curl -fsSL https://raw.githubusercontent.com/PedroLiu1999/homebox-mcp/main/scripts/quickstart.sh)
 ```
 
 ### Option 2: Manual Setup
