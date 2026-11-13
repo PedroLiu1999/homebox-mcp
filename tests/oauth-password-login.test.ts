@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
-import type { IncomingMessage } from "node:http";
+import { request as httpRequest, type IncomingMessage } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { startTestServer, type TestHarness } from "./helpers/test-server.js";
 
@@ -104,14 +104,72 @@ describe("OAuth 2.1 username/password login with automatic API key minting", () 
     harness = await startTestServer({
       mcpPublicUrl: "https://mcp.example.com",
     });
-    const { client_id } = await registerTestClient(harness.baseUrl);
+    const baseUrl = new URL(harness.baseUrl);
+    const sendWithPublicHost = (
+      method: "GET" | "POST",
+      path: string,
+      body?: string,
+    ): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }> =>
+      new Promise((resolve, reject) => {
+        const req = httpRequest(
+          {
+            hostname: baseUrl.hostname,
+            port: Number(baseUrl.port),
+            path,
+            method,
+            headers: {
+              host: "mcp.example.com",
+              ...(body
+                ? {
+                    "content-type": "application/json",
+                    "content-length": String(Buffer.byteLength(body)),
+                  }
+                : {}),
+            },
+          },
+          (res) => {
+            const chunks: Buffer[] = [];
+            res.on("data", (chunk: Buffer) => chunks.push(chunk));
+            res.on("end", () => {
+              resolve({
+                status: res.statusCode ?? 0,
+                headers: res.headers,
+                body: Buffer.concat(chunks).toString("utf8"),
+              });
+            });
+          },
+        );
+        req.on("error", reject);
+        if (body) {
+          req.write(body);
+        }
+        req.end();
+      });
+
+    const registerRes = await sendWithPublicHost(
+      "POST",
+      "/register",
+      JSON.stringify({
+        client_name: "Test MCP Client",
+        redirect_uris: ["http://127.0.0.1:9999/callback"],
+        grant_types: ["authorization_code", "refresh_token"],
+        response_types: ["code"],
+        token_endpoint_auth_method: "none",
+      }),
+    );
+    expect(registerRes.status).toBe(201);
+    const { client_id } = JSON.parse(registerRes.body) as { client_id: string };
     const { challenge } = createPkcePair();
 
-    const authRes = await fetch(
-      `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent("http://127.0.0.1:9999/callback")}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=s1`,
+    const authRes = await sendWithPublicHost(
+      "GET",
+      `/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent("http://127.0.0.1:9999/callback")}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=s1`,
     );
     expect(authRes.status).toBe(200);
-    const setCookie = authRes.headers.get("set-cookie");
+    const setCookieHeader = authRes.headers["set-cookie"];
+    const setCookie = Array.isArray(setCookieHeader)
+      ? setCookieHeader.join("; ")
+      : setCookieHeader;
     expect(setCookie).toBeTruthy();
     expect(setCookie).toContain("HttpOnly");
     expect(setCookie).toContain("SameSite=Lax");

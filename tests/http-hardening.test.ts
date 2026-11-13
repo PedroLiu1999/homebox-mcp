@@ -30,6 +30,8 @@ async function getAccessToken(harness: TestHarness): Promise<string> {
     `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256`,
   );
   expect(authRes.status).toBe(200);
+  const csrfCookie = authRes.headers.get("set-cookie")?.split(";")[0]?.trim();
+  expect(csrfCookie).toBeTruthy();
   const html = await authRes.text();
   const requestId = html.match(/name="request_id"\s+value="([^"]+)"/)?.[1];
   const csrfToken = html.match(/name="csrf_token"\s+value="([^"]+)"/)?.[1];
@@ -38,7 +40,10 @@ async function getAccessToken(harness: TestHarness): Promise<string> {
 
   const loginRes = await fetch(`${harness.baseUrl}/authorize/login`, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      cookie: csrfCookie!,
+    },
     redirect: "manual",
     body: new URLSearchParams({
       request_id: requestId!,
