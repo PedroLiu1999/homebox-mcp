@@ -66,10 +66,38 @@ function validateRedirectUris(redirectUris: string[]): void {
   }
 }
 
+const LOGIN_CSRF_COOKIE_NAME = "homebox_mcp_csrf";
+
+function getCookieValue(
+  cookieHeader: string | undefined,
+  name: string,
+): string | undefined {
+  if (!cookieHeader) {
+    return undefined;
+  }
+  for (const part of cookieHeader.split(";")) {
+    const eqIndex = part.indexOf("=");
+    if (eqIndex === -1) {
+      continue;
+    }
+    const key = part.slice(0, eqIndex).trim();
+    if (key === name) {
+      const rawValue = part.slice(eqIndex + 1).trim();
+      try {
+        return decodeURIComponent(rawValue);
+      } catch {
+        return rawValue;
+      }
+    }
+  }
+  return undefined;
+}
+
 export interface HomeboxOAuthProviderOptions {
   store: SqliteStore;
   homeboxUrl: string;
   encryptionKey: Buffer;
+  isHttps?: boolean;
 }
 
 export class HomeboxOAuthProvider implements OAuthServerProvider {
@@ -77,11 +105,13 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
   private readonly store: SqliteStore;
   private readonly homeboxUrl: string;
   private readonly encryptionKey: Buffer;
+  private readonly isHttps: boolean;
 
   constructor(options: HomeboxOAuthProviderOptions) {
     this.store = options.store;
     this.homeboxUrl = options.homeboxUrl;
     this.encryptionKey = options.encryptionKey;
+    this.isHttps = options.isHttps ?? false;
     this.clientsStore = {
       getClient: async (
         clientId: string,
@@ -125,6 +155,12 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
       scopes: params.scopes ?? [],
     });
 
+    res.cookie(LOGIN_CSRF_COOKIE_NAME, csrfToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/authorize",
+      secure: this.isHttps,
+    });
     res.status(200).type("html").send(html);
   }
 
@@ -134,8 +170,10 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
       typeof body.request_id === "string" ? body.request_id : "";
     const csrfToken =
       typeof body.csrf_token === "string" ? body.csrf_token : "";
+    const csrfCookie =
+      getCookieValue(req.headers.cookie, LOGIN_CSRF_COOKIE_NAME) ?? "";
 
-    if (!requestId || !csrfToken) {
+    if (!requestId || !csrfToken || !csrfCookie) {
       res.status(403).type("text/plain").send("Missing CSRF or request token");
       return;
     }
@@ -145,7 +183,8 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
     if (
       !pending ||
       pending.expiresAt <= now ||
-      !timingSafeEqualStrings(pending.csrfToken, csrfToken)
+      !timingSafeEqualStrings(pending.csrfToken, csrfToken) ||
+      !timingSafeEqualStrings(pending.csrfToken, csrfCookie)
     ) {
       res.status(403).type("text/plain").send("Invalid or expired CSRF token");
       return;
@@ -231,6 +270,12 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
     if (pending.state) {
       redirectUrl.searchParams.set("state", pending.state);
     }
+    res.clearCookie(LOGIN_CSRF_COOKIE_NAME, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/authorize",
+      secure: this.isHttps,
+    });
     res.redirect(302, redirectUrl.href);
   }
 

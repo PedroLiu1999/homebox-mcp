@@ -166,12 +166,16 @@ describe("OAuth 2.1 DCR, PKCE authorization, and API key login", () => {
       `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent("http://127.0.0.1:9999/callback")}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=state123`,
     );
     expect(authRes.status).toBe(200);
+    const cookie = authRes.headers.get("set-cookie")!.split(";")[0]!.trim();
     const form1 = extractFormFields(await authRes.text());
 
     // Submit invalid key -> re-renders form with error message, no redirect
     const invalidKeyRes = await fetch(`${harness.baseUrl}/authorize/login`, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie,
+      },
       redirect: "manual",
       body: new URLSearchParams({
         request_id: form1.requestId,
@@ -189,7 +193,10 @@ describe("OAuth 2.1 DCR, PKCE authorization, and API key login", () => {
     const form2 = extractFormFields(errHtml);
     const validKeyRes = await fetch(`${harness.baseUrl}/authorize/login`, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie,
+      },
       redirect: "manual",
       body: new URLSearchParams({
         request_id: form2.requestId,
@@ -233,11 +240,15 @@ describe("OAuth 2.1 DCR, PKCE authorization, and API key login", () => {
     const authRes = await fetch(
       `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=s1`,
     );
+    const cookie = authRes.headers.get("set-cookie")!.split(";")[0]!.trim();
     const form = extractFormFields(await authRes.text());
 
     const loginRes = await fetch(`${harness.baseUrl}/authorize/login`, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie,
+      },
       redirect: "manual",
       body: new URLSearchParams({
         request_id: form.requestId,
@@ -317,10 +328,14 @@ describe("OAuth 2.1 DCR, PKCE authorization, and API key login", () => {
       const authRes = await fetch(
         `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(clientA.client_id)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256`,
       );
+      const cookie = authRes.headers.get("set-cookie")!.split(";")[0]!.trim();
       const form = extractFormFields(await authRes.text());
       const loginRes = await fetch(`${harness.baseUrl}/authorize/login`, {
         method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          cookie,
+        },
         redirect: "manual",
         body: new URLSearchParams({
           request_id: form.requestId,
