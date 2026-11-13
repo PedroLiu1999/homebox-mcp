@@ -1,4 +1,8 @@
-# Homebox MCP Server
+<p align="center">
+  <img src="assets/logo/homebox-mcp-symbol.svg" alt="Homebox MCP Logo" width="128" />
+</p>
+
+<h1 align="center">Homebox MCP Server</h1>
 
 An MCP (Model Context Protocol) server for [Homebox](https://github.com/sysadminsmedia/homebox) over Streamable HTTP with an **embedded OAuth 2.1 Authorization Server and Resource Server**.
 
@@ -8,6 +12,12 @@ Remote MCP clients (such as Claude, Cursor, and other OAuth 2.1-capable clients)
 - **An existing `hb_...` API key** (useful for OIDC/SSO Homebox accounts or manual key management)
 
 Homebox API keys are encrypted at rest with AES-256-GCM in a local SQLite database.
+
+## Architecture
+
+<p align="center">
+  <img src="assets/architecture.svg" alt="Homebox MCP Server Architecture" width="100%" />
+</p>
 
 ## Environment Variables
 
