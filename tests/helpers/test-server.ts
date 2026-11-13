@@ -8,7 +8,7 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
-import { createApp } from "../../src/app.js";
+import { createAppRuntime } from "../../src/app.js";
 import type { AppConfig } from "../../src/config.js";
 
 export type HomeboxMockHandler = (
@@ -71,8 +71,8 @@ export async function startTestServer(
     ...overrides,
   };
 
-  const app = createApp(config);
-  mcpServer.on("request", app);
+  const runtime = createAppRuntime(config);
+  mcpServer.on("request", runtime.app);
 
   return {
     baseUrl,
@@ -88,6 +88,7 @@ export async function startTestServer(
       await new Promise<void>((resolve, reject) => {
         homeboxServer.close((err) => (err ? reject(err) : resolve()));
       });
+      runtime.close();
       rmSync(tempDir, { recursive: true, force: true });
     },
   };

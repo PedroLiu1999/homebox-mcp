@@ -12,7 +12,22 @@ import { createHomeboxMcpServer } from "./mcp/server.js";
 import { HomeboxOAuthProvider } from "./oauth/provider.js";
 import { SqliteStore } from "./storage/sqlite.js";
 
-export function createApp(config: AppConfig): Express {
+const DEFAULT_PRUNE_INTERVAL_MS = 15 * 60 * 1000;
+
+export interface AppRuntime {
+  app: Express;
+  store: SqliteStore;
+  close: () => void;
+}
+
+export interface CreateAppOptions {
+  pruneIntervalMs?: number;
+}
+
+export function createAppRuntime(
+  config: AppConfig,
+  options: CreateAppOptions = {},
+): AppRuntime {
   const app = express();
   app.use(express.json());
 
@@ -81,5 +96,25 @@ export function createApp(config: AppConfig): Express {
     await transport.handleRequest(req, res, req.body);
   });
 
-  return app;
+  const pruneIntervalMs = options.pruneIntervalMs ?? DEFAULT_PRUNE_INTERVAL_MS;
+  const pruneTimer = setInterval(() => {
+    store.pruneExpired();
+  }, pruneIntervalMs);
+  pruneTimer.unref();
+
+  let closed = false;
+  const close = (): void => {
+    if (closed) {
+      return;
+    }
+    closed = true;
+    clearInterval(pruneTimer);
+    store.close();
+  };
+
+  return { app, store, close };
+}
+
+export function createApp(config: AppConfig): Express {
+  return createAppRuntime(config).app;
 }
