@@ -10,16 +10,40 @@ import { registerTemplateTools } from "./tools/templates.js";
 export interface CreateHomeboxMcpServerOptions {
   homeboxClient: HomeboxClient;
   onUnauthorized?: () => void;
+  publicUrl?: string;
 }
 
 export function createHomeboxMcpServer(
   options: CreateHomeboxMcpServerOptions,
 ): McpServer {
-  const { homeboxClient, onUnauthorized } = options;
+  const { homeboxClient, onUnauthorized, publicUrl } = options;
+  const origin = publicUrl?.replace(/\/+$/, "");
 
   const server = new McpServer({
     name: "homebox-mcp",
+    title: "Homebox MCP",
     version: "0.1.0",
+    ...(origin
+      ? {
+          icons: [
+            {
+              src: `${origin}/logo.svg`,
+              mimeType: "image/svg+xml",
+              sizes: ["any"],
+            },
+            {
+              src: `${origin}/icon-192.png`,
+              mimeType: "image/png",
+              sizes: ["192x192"],
+            },
+            {
+              src: `${origin}/icon-512.png`,
+              mimeType: "image/png",
+              sizes: ["512x512"],
+            },
+          ],
+        }
+      : {}),
   });
 
   server.registerTool(

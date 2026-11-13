@@ -34,8 +34,17 @@ export function renderAuthorizePage(params: AuthorizePageParams): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Authorize ${clientName} — Homebox MCP</title>
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1E2A23" />
 </head>
 <body style="font-family:system-ui,-apple-system,sans-serif;max-width:460px;margin:48px auto;padding:0 16px;color:#111827;">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+    <img src="/logo.svg" alt="Homebox MCP" width="40" height="40" />
+    <span style="font-weight:700;font-size:1.125rem;color:#111827;">Homebox <span style="font-weight:400;color:#567f67;">MCP</span></span>
+  </div>
   <h1 style="font-size:1.25rem;margin-bottom:8px;">Authorize ${clientName}</h1>
   <p style="color:#4b5563;margin-top:0;">Sign in with your Homebox credentials or enter an existing Homebox API key to grant this MCP client access to your Homebox inventory.</p>
   <p style="font-size:0.875rem;color:#6b7280;">Requested scope: <code>${scopesText}</code></p>

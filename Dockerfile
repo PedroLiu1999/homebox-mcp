@@ -22,6 +22,7 @@ ENV DATABASE_PATH=/data/homebox-mcp.db
 RUN mkdir -p /data && chown -R node:node /app /data
 
 COPY --chown=node:node package.json ./
+COPY --chown=node:node assets ./assets
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /app/dist ./dist
 
