@@ -4,7 +4,7 @@
 
 **Blocked by:** 04: Token refresh, revocation, and authenticated MCP tool bridge
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Multi-stage `Dockerfile` builds the TypeScript server and runs it as a non-root user in a slim Node.js runtime image with a `/health` healthcheck
 - [ ] GitHub Actions workflow runs typecheck and tests on pull requests and pushes, and builds/pushes `linux/amd64` and `linux/arm64` images to `ghcr.io` on pushes to `main` and version tags

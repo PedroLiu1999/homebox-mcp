@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: resolved
 
 # Homebox MCP Server with Embedded OAuth 2.1
 

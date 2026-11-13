@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="homebox-mcp-arch-title homebox-mcp-arch-desc" id="architecture-root">
+        <title id="homebox-mcp-arch-title">Homebox MCP Server Architecture</title>
+        <desc id="homebox-mcp-arch-desc">Architecture diagram showing MCP clients and user browsers authenticating via an embedded OAuth 2.1 server with encrypted SQLite storage to invoke Homebox tools over Streamable HTTP.</desc>
+        <defs>
+      <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;family=Noto+Serif:ital@0;1&amp;family=Noto+Sans+KR:wght@400;500;600&amp;family=Noto+Serif+KR:wght@400&amp;family=Noto+Sans+TC:wght@400;500;600&amp;family=Noto+Serif+TC:wght@400&amp;display=swap');
+      #architecture-root { --color-paper:   #f5f5f5;   
+      --color-ink:     #2d3142;   
+      --color-muted:   #4f5d75;   
+      --color-accent:  #bf4520;   
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', 'Noto Serif KR', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace; }
+      #architecture-root { font-family: var(--font-sans); color: var(--color-ink); }
+      #architecture-root .diagram-container { width: 100%; overflow-x: auto; }
+      @media print {
+#architecture-root .diagram-container { overflow-x: visible; }
+}</style>
+          <marker id="architecture-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+          <marker id="architecture-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+          <marker id="architecture-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+        </defs>
+
+        <!-- Background -->
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+        <!-- Zones (drawn before arrows and nodes) -->
+        <rect x="24" y="56" width="192" height="452" rx="8" fill="#2d3142" stroke="#2d3142" stroke-width="0.8" fill-opacity="0.02" stroke-opacity="0.10"/>
+        <rect x="36" y="60" width="60" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="66" y="69" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">CLIENTS</text>
+
+        <rect x="284" y="56" width="448" height="452" rx="8" fill="#2d3142" stroke="#2d3142" stroke-width="0.8" fill-opacity="0.02" stroke-opacity="0.10"/>
+        <rect x="296" y="60" width="144" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="368" y="69" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">HOMEBOX MCP SERVER (:3000)</text>
+
+        <rect x="760" y="56" width="176" height="452" rx="8" fill="#2d3142" stroke="#2d3142" stroke-width="0.8" fill-opacity="0.02" stroke-opacity="0.10"/>
+        <rect x="772" y="60" width="68" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="806" y="69" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">UPSTREAM</text>
+
+        <!-- Arrows (drawn before nodes) -->
+        <!-- 1. User Browser -> OAuth 2.1 Server (PKCE LOGIN) -->
+        <line x1="196" y1="146" x2="304" y2="146" stroke="#2e5aa8" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#architecture-arrow-link)"/>
+        <rect x="220" y="126" width="60" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="250" y="135" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">PKCE LOGIN</text>
+
+        <!-- 2. MCP Client -> OAuth 2.1 Server (DCR + TOKEN) -->
+        <path d="M 196,316 H 216 Q 224,316 224,308 V 172 Q 224,164 232,164 H 304" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#architecture-arrow-link)"/>
+        <rect x="232" y="232" width="64" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="264" y="241" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">DCR + TOKEN</text>
+
+        <!-- 3. MCP Client -> Streamable HTTP (BEARER /MCP) -->
+        <line x1="196" y1="344" x2="304" y2="344" stroke="#bf4520" stroke-width="1.2" marker-end="url(#architecture-arrow-accent)"/>
+        <rect x="218" y="324" width="64" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="250" y="333" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">BEARER /MCP</text>
+
+        <!-- 4. OAuth 2.1 Server -> SQLite + AES-256 (ENCRYPT KEY) -->
+        <line x1="472" y1="146" x2="544" y2="146" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#architecture-arrow)"/>
+        <rect x="476" y="126" width="64" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="508" y="135" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">ENCRYPT KEY</text>
+
+        <!-- 5. Streamable HTTP -> SQLite + AES-256 (DECRYPT KEY) -->
+        <path d="M 420,300 V 250 Q 420,242 428,242 H 588 Q 596,242 596,234 V 184" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#architecture-arrow)"/>
+        <rect x="476" y="222" width="64" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="508" y="231" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">DECRYPT KEY</text>
+
+        <!-- 6. Streamable HTTP -> Homebox Toolset (TOOL CALL) -->
+        <line x1="472" y1="338" x2="544" y2="338" stroke="#bf4520" stroke-width="1.2" marker-end="url(#architecture-arrow-accent)"/>
+        <rect x="480" y="318" width="56" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="508" y="327" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TOOL CALL</text>
+
+        <!-- 7. OAuth 2.1 Server -> Homebox Instance (EXCHANGE CREDS) -->
+        <path d="M 388,108 V 92 Q 388,84 396,84 H 844 Q 852,84 852,92 V 204" fill="none" stroke="#2e5aa8" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#architecture-arrow-link)"/>
+        <rect x="580" y="64" width="76" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="618" y="73" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">EXCHANGE CREDS</text>
+
+        <!-- 8. Homebox Toolset -> Homebox Instance (REST + HB_KEY) -->
+        <path d="M 712,338 H 844 Q 852,338 852,330 V 280" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#architecture-arrow-link)"/>
+        <rect x="744" y="318" width="72" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="780" y="327" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">REST + HB_KEY</text>
+
+        <!-- Nodes -->
+        <!-- Node 1: User Browser (input) -->
+        <rect x="44" y="108" width="152" height="76" rx="6" fill="#f5f5f5"/>
+        <rect x="44" y="108" width="152" height="76" rx="6" fill="#4f5d75" stroke="#5a6580" stroke-width="1" fill-opacity="0.10"/>
+        <rect x="52" y="114" width="32" height="12" rx="2" fill="none" stroke="#5a6580" stroke-width="0.8" stroke-opacity="0.40"/>
+        <text x="68" y="123" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.80">AUTH</text>
+        <text x="120" y="148" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">User Browser</text>
+        <text x="120" y="164" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">PKCE (S256) Login</text>
+
+        <!-- Node 2: MCP Client (input) -->
+        <rect x="44" y="300" width="152" height="76" rx="6" fill="#f5f5f5"/>
+        <rect x="44" y="300" width="152" height="76" rx="6" fill="#4f5d75" stroke="#5a6580" stroke-width="1" fill-opacity="0.10"/>
+        <rect x="52" y="306" width="40" height="12" rx="2" fill="none" stroke="#5a6580" stroke-width="0.8" stroke-opacity="0.40"/>
+        <text x="72" y="315" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.80">CLIENT</text>
+        <text x="120" y="340" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">MCP Client</text>
+        <text x="120" y="356" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Claude / Cursor</text>
+
+        <!-- Node 3: OAuth 2.1 Server (backend) -->
+        <rect x="304" y="108" width="168" height="76" rx="6" fill="#f5f5f5"/>
+        <rect x="304" y="108" width="168" height="76" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="312" y="114" width="36" height="12" rx="2" fill="none" stroke="#2d3142" stroke-width="0.8" stroke-opacity="0.40"/>
+        <text x="330" y="123" fill="#2d3142" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.80">OAUTH</text>
+        <text x="388" y="148" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">OAuth 2.1 Server</text>
+        <text x="388" y="164" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">/register · /authorize</text>
+
+        <!-- Node 4: SQLite + AES-256 (store) -->
+        <rect x="544" y="108" width="168" height="76" rx="6" fill="#f5f5f5"/>
+        <rect x="544" y="108" width="168" height="76" rx="6" fill="#2d3142" stroke="#4f5d75" stroke-width="1" fill-opacity="0.05"/>
+        <rect x="552" y="114" width="36" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-width="0.8" stroke-opacity="0.40"/>
+        <text x="570" y="123" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.80">STORE</text>
+        <text x="628" y="148" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">SQLite + AES-256</text>
+        <text x="628" y="164" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Encrypted hb_... Keys</text>
+
+        <!-- Node 5: Streamable HTTP (focal) -->
+        <rect x="304" y="300" width="168" height="76" rx="6" fill="#f5f5f5"/>
+        <rect x="304" y="300" width="168" height="76" rx="6" fill="#bf4520" stroke="#bf4520" stroke-width="1" fill-opacity="0.08"/>
+        <rect x="312" y="306" width="28" height="12" rx="2" fill="none" stroke="#bf4520" stroke-width="0.8" stroke-opacity="0.40"/>
+        <text x="326" y="315" fill="#bf4520" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.80">MCP</text>
+        <text x="388" y="340" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Streamable HTTP</text>
+        <text x="388" y="356" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">POST /mcp · Bearer</text>
+
+        <!-- Node 6: Homebox Toolset (backend) -->
+        <rect x="544" y="300" width="168" height="76" rx="6" fill="#f5f5f5"/>
+        <rect x="544" y="300" width="168" height="76" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="552" y="306" width="36" height="12" rx="2" fill="none" stroke="#2d3142" stroke-width="0.8" stroke-opacity="0.40"/>
+        <text x="570" y="315" fill="#2d3142" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.80">TOOLS</text>
+        <text x="628" y="340" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Homebox Toolset</text>
+        <text x="628" y="356" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Items · Tags · Assets</text>
+
+        <!-- Node 7: Homebox Instance (external) -->
+        <rect x="780" y="204" width="144" height="76" rx="6" fill="#f5f5f5"/>
+        <rect x="780" y="204" width="144" height="76" rx="6" fill="#2d3142" stroke="#2d3142" stroke-width="1" fill-opacity="0.03" stroke-opacity="0.30"/>
+        <rect x="788" y="210" width="28" height="12" rx="2" fill="none" stroke="#2d3142" stroke-width="0.8" stroke-opacity="0.40"/>
+        <text x="802" y="219" fill="#2d3142" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.80">API</text>
+        <text x="852" y="244" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Homebox Instance</text>
+        <text x="852" y="260" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">/api/v1/* (:7745)</text>
+
+        <!-- Legend (horizontal strip at bottom) -->
+        <line x1="24" y1="544" x2="936" y2="544" stroke="#2d3142" stroke-width="0.8" stroke-opacity="0.10"/>
+        <text x="24" y="564" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
+
+        <rect x="100" y="555" width="14" height="10" rx="2" fill="#bf4520" stroke="#bf4520" stroke-width="1" fill-opacity="0.08"/>
+        <text x="120" y="563" fill="#4f5d75" font-size="9" font-family="'Geist', system-ui, sans-serif">Focal endpoint</text>
+
+        <rect x="220" y="555" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="240" y="563" fill="#4f5d75" font-size="9" font-family="'Geist', system-ui, sans-serif">Server module</text>
+
+        <rect x="340" y="555" width="14" height="10" rx="2" fill="#2d3142" stroke="#4f5d75" stroke-width="1" fill-opacity="0.05"/>
+        <text x="360" y="563" fill="#4f5d75" font-size="9" font-family="'Geist', system-ui, sans-serif">Encrypted store</text>
+
+        <rect x="468" y="555" width="14" height="10" rx="2" fill="#2d3142" stroke="#2d3142" stroke-width="1" fill-opacity="0.03" stroke-opacity="0.30"/>
+        <text x="488" y="563" fill="#4f5d75" font-size="9" font-family="'Geist', system-ui, sans-serif">External API</text>
+
+        <line x1="588" y1="560" x2="612" y2="560" stroke="#bf4520" stroke-width="1.2"/>
+        <text x="618" y="563" fill="#4f5d75" font-size="9" font-family="'Geist', system-ui, sans-serif">MCP request path</text>
+
+        <line x1="736" y1="560" x2="760" y2="560" stroke="#2e5aa8" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="766" y="563" fill="#4f5d75" font-size="9" font-family="'Geist', system-ui, sans-serif">Interactive / setup auth</text>
+      </svg>

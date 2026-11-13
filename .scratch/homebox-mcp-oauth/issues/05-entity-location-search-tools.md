@@ -4,7 +4,7 @@
 
 **Blocked by:** 04: Token refresh, revocation, and authenticated MCP tool bridge
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] MCP tools cover listing/searching entities (with query, label/tag, location, and pagination filters), getting entity details, creating, updating/patching, and deleting entities
 - [ ] MCP tools cover location tree retrieval (`/v1/entities/tree`), entity breadcrumb path (`/v1/entities/{id}/path`), and entity fields/values discovery
