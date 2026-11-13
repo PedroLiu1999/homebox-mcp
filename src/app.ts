@@ -1,4 +1,10 @@
-import express, { type Express } from "express";
+import express, {
+  type Express,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
+import helmet from "helmet";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
 import {
@@ -14,7 +20,25 @@ import { SqliteStore } from "./storage/sqlite.js";
 
 export function createApp(config: AppConfig): Express {
   const app = express();
-  app.use(express.json());
+  app.disable("x-powered-by");
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          scriptSrcAttr: ["'none'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          formAction: ["'self'"],
+          frameAncestors: ["'none'"],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          upgradeInsecureRequests: null,
+        },
+      },
+    }),
+  );
+  app.use(express.json({ limit: "100kb" }));
 
   const issuerUrl = new URL(config.mcpPublicUrl);
   const store = new SqliteStore(config.databasePath);
@@ -32,7 +56,7 @@ export function createApp(config: AppConfig): Express {
 
   app.post(
     "/authorize/login",
-    express.urlencoded({ extended: false }),
+    express.urlencoded({ extended: false, limit: "16kb" }),
     (req, res, next) => {
       void provider.handleAuthorizeLogin(req, res).catch(next);
     },
@@ -52,7 +76,7 @@ export function createApp(config: AppConfig): Express {
     resourceMetadataUrl,
   });
 
-  app.all("/mcp", bearerAuth, async (req, res) => {
+  app.all("/mcp", bearerAuth, async (req, res, next) => {
     const extra = req.auth?.extra as
       | { homeboxApiKey?: string; grantId?: string }
       | undefined;
@@ -77,9 +101,57 @@ export function createApp(config: AppConfig): Express {
       void transport.close();
       void server.close();
     });
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.body);
+    try {
+      await server.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+    } catch (err) {
+      void transport.close();
+      void server.close();
+      if (!res.headersSent) {
+        next(err);
+        return;
+      }
+      console.error("Unhandled error after /mcp headers sent:", err);
+      res.end();
+    }
   });
+
+  app.use(
+    (
+      err: unknown,
+      _req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      if (res.headersSent) {
+        next(err);
+        return;
+      }
+
+      const status =
+        typeof err === "object" &&
+        err !== null &&
+        "status" in err &&
+        typeof err.status === "number" &&
+        err.status >= 400 &&
+        err.status < 500
+          ? err.status
+          : 500;
+
+      if (status === 413) {
+        res.status(413).json({ error: "payload_too_large" });
+        return;
+      }
+
+      if (status >= 400 && status < 500) {
+        res.status(status).json({ error: "bad_request" });
+        return;
+      }
+
+      console.error("Unhandled Express error:", err);
+      res.status(500).json({ error: "internal_server_error" });
+    },
+  );
 
   return app;
 }
