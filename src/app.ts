@@ -11,9 +11,11 @@ import rateLimit from "express-rate-limit";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
 import {
+  createOAuthMetadata,
   getOAuthProtectedResourceMetadataUrl,
   mcpAuthRouter,
 } from "@modelcontextprotocol/sdk/server/auth/router.js";
+import { metadataHandler } from "@modelcontextprotocol/sdk/server/auth/handlers/metadata.js";
 import type { AppConfig } from "./config.js";
 import { parseEncryptionKey } from "./crypto.js";
 import { HomeboxClient } from "./homebox/client.js";
@@ -228,6 +230,35 @@ export function createAppRuntime(
   app.use("/register", registerLimiter);
   app.use("/token", tokenLimiter);
 
+  const logoUri = `${issuerUrl.origin}/logo.png`;
+  const oauthMetadata = {
+    ...createOAuthMetadata({
+      provider,
+      issuerUrl,
+    }),
+    logo_uri: logoUri,
+  };
+  const protectedResourceMetadata = {
+    resource: issuerUrl.href,
+    authorization_servers: [issuerUrl.href],
+    bearer_methods_supported: ["header"],
+    resource_name: "Homebox MCP Server",
+    logo_uri: logoUri,
+  };
+
+  app.use(
+    "/.well-known/oauth-protected-resource/mcp",
+    metadataHandler(protectedResourceMetadata),
+  );
+  app.use(
+    "/.well-known/oauth-protected-resource",
+    metadataHandler(protectedResourceMetadata),
+  );
+  app.use(
+    "/.well-known/oauth-authorization-server",
+    metadataHandler(oauthMetadata),
+  );
+
   app.use(
     mcpAuthRouter({
       provider,
@@ -258,7 +289,6 @@ export function createAppRuntime(
     const homeboxClient = new HomeboxClient(config.homeboxUrl, homeboxApiKey);
     const server = createHomeboxMcpServer({
       homeboxClient,
-      publicUrl: issuerUrl.origin,
       onUnauthorized: grantId
         ? () => store.revokeGrant(grantId, Math.floor(Date.now() / 1000))
         : undefined,

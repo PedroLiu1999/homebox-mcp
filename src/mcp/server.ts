@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { HomeboxClient } from "../homebox/client.js";
+import { BRAND_ICON_DATA_URI } from "./icon.js";
 import { registerEntityTools } from "./tools/entities.js";
 import { registerMaintenanceTools } from "./tools/maintenance.js";
 import { registerReportingTools } from "./tools/reporting.js";
@@ -10,40 +11,24 @@ import { registerTemplateTools } from "./tools/templates.js";
 export interface CreateHomeboxMcpServerOptions {
   homeboxClient: HomeboxClient;
   onUnauthorized?: () => void;
-  publicUrl?: string;
 }
 
 export function createHomeboxMcpServer(
   options: CreateHomeboxMcpServerOptions,
 ): McpServer {
-  const { homeboxClient, onUnauthorized, publicUrl } = options;
-  const origin = publicUrl?.replace(/\/+$/, "");
+  const { homeboxClient, onUnauthorized } = options;
 
   const server = new McpServer({
     name: "homebox-mcp",
     title: "Homebox MCP",
     version: "0.1.0",
-    ...(origin
-      ? {
-          icons: [
-            {
-              src: `${origin}/logo.svg`,
-              mimeType: "image/svg+xml",
-              sizes: ["any"],
-            },
-            {
-              src: `${origin}/icon-192.png`,
-              mimeType: "image/png",
-              sizes: ["192x192"],
-            },
-            {
-              src: `${origin}/icon-512.png`,
-              mimeType: "image/png",
-              sizes: ["512x512"],
-            },
-          ],
-        }
-      : {}),
+    icons: [
+      {
+        src: BRAND_ICON_DATA_URI,
+        mimeType: "image/png",
+        sizes: ["192x192"],
+      },
+    ],
   });
 
   server.registerTool(

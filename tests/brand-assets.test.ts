@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { afterEach, describe, expect, it } from "vitest";
+import { BRAND_ICON_DATA_URI } from "../src/mcp/icon.js";
 import { startTestServer, type TestHarness } from "./helpers/test-server.js";
 
 async function registerAndAuthorize(harness: TestHarness): Promise<{
@@ -166,21 +167,25 @@ describe("MCP logo, favicon, and webmanifest assets", () => {
       expect(serverInfo?.title).toBe("Homebox MCP");
       expect(serverInfo?.icons).toEqual([
         {
-          src: `${harness.baseUrl}/logo.svg`,
-          mimeType: "image/svg+xml",
-          sizes: ["any"],
-        },
-        {
-          src: `${harness.baseUrl}/icon-192.png`,
+          src: BRAND_ICON_DATA_URI,
           mimeType: "image/png",
           sizes: ["192x192"],
         },
-        {
-          src: `${harness.baseUrl}/icon-512.png`,
-          mimeType: "image/png",
-          sizes: ["512x512"],
-        },
       ]);
+
+      const metadataPaths = [
+        "/.well-known/oauth-authorization-server",
+        "/.well-known/oauth-protected-resource",
+        "/.well-known/oauth-protected-resource/mcp",
+      ];
+      for (const metadataPath of metadataPaths) {
+        const res = await fetch(`${harness.baseUrl}${metadataPath}`);
+        expect(res.status, `status for ${metadataPath}`).toBe(200);
+        const body = (await res.json()) as { logo_uri?: string };
+        expect(body.logo_uri, `logo_uri for ${metadataPath}`).toBe(
+          `${harness.baseUrl}/logo.png`,
+        );
+      }
     } finally {
       await client.close();
       await transport.close();
