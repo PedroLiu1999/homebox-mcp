@@ -3,8 +3,8 @@ import type { OAuthRegisteredClientsStore } from "@modelcontextprotocol/sdk/serv
 import {
   InvalidClientMetadataError,
   InvalidGrantError,
+  InvalidScopeError,
   InvalidTokenError,
-  ServerError,
 } from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import type {
   AuthorizationParams,
@@ -17,6 +17,7 @@ import type {
   OAuthTokens,
 } from "@modelcontextprotocol/sdk/shared/auth.js";
 import {
+  decryptSecret,
   encryptSecret,
   generateOpaqueToken,
   hashToken,
@@ -275,10 +276,48 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
   }
 
   async exchangeRefreshToken(
-    _client: OAuthClientInformationFull,
-    _refreshToken: string,
+    client: OAuthClientInformationFull,
+    refreshToken: string,
+    scopes?: string[],
   ): Promise<OAuthTokens> {
-    throw new ServerError("Refresh token exchange not yet implemented");
+    const now = Math.floor(Date.now() / 1000);
+    const newAccessToken = generateOpaqueToken(32);
+    const newRefreshToken = generateOpaqueToken(32);
+
+    const rotated = this.store.rotateRefreshToken({
+      oldRefreshTokenHash: hashToken(refreshToken),
+      clientId: client.client_id,
+      newAccessTokenHash: hashToken(newAccessToken),
+      newAccessTokenExpiresAt: now + ACCESS_TOKEN_TTL_SECONDS,
+      newRefreshTokenHash: hashToken(newRefreshToken),
+      newRefreshTokenExpiresAt: now + REFRESH_TOKEN_TTL_SECONDS,
+      now,
+    });
+
+    if (!rotated) {
+      throw new InvalidGrantError(
+        "Invalid, expired, or already used refresh token",
+      );
+    }
+
+    let grantedScopes = rotated.scopes;
+    if (scopes && scopes.length > 0) {
+      const allowed = new Set(rotated.scopes);
+      for (const s of scopes) {
+        if (!allowed.has(s)) {
+          throw new InvalidScopeError(`Scope not granted: ${s}`);
+        }
+      }
+      grantedScopes = scopes;
+    }
+
+    return {
+      access_token: newAccessToken,
+      token_type: "bearer",
+      expires_in: ACCESS_TOKEN_TTL_SECONDS,
+      refresh_token: newRefreshToken,
+      ...(grantedScopes.length > 0 ? { scope: grantedScopes.join(" ") } : {}),
+    };
   }
 
   async verifyAccessToken(token: string): Promise<AuthInfo> {
@@ -287,18 +326,32 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
     if (!active) {
       throw new InvalidTokenError("Invalid or expired access token");
     }
+    const homeboxApiKey = decryptSecret(
+      active.encryptedHomeboxKey,
+      this.encryptionKey,
+    );
     return {
       token,
       clientId: active.clientId,
       scopes: active.scopes,
       expiresAt: active.expiresAt,
+      extra: {
+        grantId: active.grantId,
+        homeboxApiKey,
+      },
     };
   }
 
   async revokeToken(
-    _client: OAuthClientInformationFull,
-    _request: OAuthTokenRevocationRequest,
+    client: OAuthClientInformationFull,
+    request: OAuthTokenRevocationRequest,
   ): Promise<void> {
-    throw new ServerError("Token revocation not yet implemented");
+    const now = Math.floor(Date.now() / 1000);
+    this.store.revokeToken(
+      hashToken(request.token),
+      client.client_id,
+      now,
+      request.token_type_hint,
+    );
   }
 }
