@@ -102,8 +102,15 @@ jobs:
           if [[ "$TAG" == *-* ]]; then
             PRERELEASE_FLAG="--prerelease"
           fi
+          TAG_NOTES="$(git for-each-ref --format='%(contents)' "refs/tags/$TAG")"
+          DOCKER_NOTE="Docker image: \`${IMAGE}:${TAG#v}\`"
+          if [[ -n "${TAG_NOTES//[[:space:]]/}" ]]; then
+            NOTES="${TAG_NOTES}"$'\n\n'"${DOCKER_NOTE}"
+          else
+            NOTES="${DOCKER_NOTE}"
+          fi
           gh release create "$TAG" \
             --title "$TAG" \
             --generate-notes \
-            --notes "Docker image: \`${IMAGE}:${TAG#v}\`" \
+            --notes "$NOTES" \
             $PRERELEASE_FLAG
