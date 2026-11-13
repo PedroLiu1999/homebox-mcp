@@ -38,17 +38,19 @@ const AUTH_CODE_TTL_SECONDS = 300;
 const ACCESS_TOKEN_TTL_SECONDS = 3600;
 const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 3600;
 
-const DISALLOWED_REDIRECT_SCHEMES = new Set([
-  "javascript:",
-  "data:",
-  "vbscript:",
-  "file:",
-]);
+const MAX_REDIRECT_URIS = 10;
+const MAX_CLIENT_NAME_LENGTH = 200;
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 function validateRedirectUris(redirectUris: string[]): void {
   if (!Array.isArray(redirectUris) || redirectUris.length === 0) {
     throw new InvalidClientMetadataError(
       "redirect_uris must be a non-empty array",
+    );
+  }
+  if (redirectUris.length > MAX_REDIRECT_URIS) {
+    throw new InvalidClientMetadataError(
+      `redirect_uris must contain at most ${MAX_REDIRECT_URIS} entries`,
     );
   }
   for (const uri of redirectUris) {
@@ -58,18 +60,67 @@ function validateRedirectUris(redirectUris: string[]): void {
     } catch {
       throw new InvalidClientMetadataError(`Invalid redirect_uri: ${uri}`);
     }
-    if (DISALLOWED_REDIRECT_SCHEMES.has(parsed.protocol.toLowerCase())) {
-      throw new InvalidClientMetadataError(
-        `Disallowed redirect_uri scheme: ${parsed.protocol}`,
-      );
+    const protocol = parsed.protocol.toLowerCase();
+    if (protocol === "https:") {
+      continue;
+    }
+    if (
+      protocol === "http:" &&
+      LOOPBACK_HOSTNAMES.has(parsed.hostname.toLowerCase())
+    ) {
+      continue;
+    }
+    throw new InvalidClientMetadataError(
+      `Disallowed redirect_uri: ${uri}. Only https or loopback http (localhost, 127.0.0.1, [::1]) URIs are allowed.`,
+    );
+  }
+}
+
+function validateClientMetadata(client: OAuthClientInformationFull): void {
+  validateRedirectUris(client.redirect_uris);
+  if (
+    client.client_name !== undefined &&
+    (typeof client.client_name !== "string" ||
+      client.client_name.length > MAX_CLIENT_NAME_LENGTH)
+  ) {
+    throw new InvalidClientMetadataError(
+      `client_name must be at most ${MAX_CLIENT_NAME_LENGTH} characters`,
+    );
+  }
+}
+
+const LOGIN_CSRF_COOKIE_NAME = "homebox_mcp_csrf";
+
+function getCookieValue(
+  cookieHeader: string | undefined,
+  name: string,
+): string | undefined {
+  if (!cookieHeader) {
+    return undefined;
+  }
+  for (const part of cookieHeader.split(";")) {
+    const eqIndex = part.indexOf("=");
+    if (eqIndex === -1) {
+      continue;
+    }
+    const key = part.slice(0, eqIndex).trim();
+    if (key === name) {
+      const rawValue = part.slice(eqIndex + 1).trim();
+      try {
+        return decodeURIComponent(rawValue);
+      } catch {
+        return rawValue;
+      }
     }
   }
+  return undefined;
 }
 
 export interface HomeboxOAuthProviderOptions {
   store: SqliteStore;
   homeboxUrl: string;
   encryptionKey: Buffer;
+  isHttps?: boolean;
 }
 
 export class HomeboxOAuthProvider implements OAuthServerProvider {
@@ -77,11 +128,13 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
   private readonly store: SqliteStore;
   private readonly homeboxUrl: string;
   private readonly encryptionKey: Buffer;
+  private readonly isHttps: boolean;
 
   constructor(options: HomeboxOAuthProviderOptions) {
     this.store = options.store;
     this.homeboxUrl = options.homeboxUrl;
     this.encryptionKey = options.encryptionKey;
+    this.isHttps = options.isHttps ?? false;
     this.clientsStore = {
       getClient: async (
         clientId: string,
@@ -91,7 +144,7 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
       registerClient: async (
         client: OAuthClientInformationFull,
       ): Promise<OAuthClientInformationFull> => {
-        validateRedirectUris(client.redirect_uris);
+        validateClientMetadata(client);
         return this.store.saveClient(client);
       },
     };
@@ -125,6 +178,12 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
       scopes: params.scopes ?? [],
     });
 
+    res.cookie(LOGIN_CSRF_COOKIE_NAME, csrfToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/authorize",
+      secure: this.isHttps,
+    });
     res.status(200).type("html").send(html);
   }
 
@@ -134,8 +193,10 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
       typeof body.request_id === "string" ? body.request_id : "";
     const csrfToken =
       typeof body.csrf_token === "string" ? body.csrf_token : "";
+    const csrfCookie =
+      getCookieValue(req.headers.cookie, LOGIN_CSRF_COOKIE_NAME) ?? "";
 
-    if (!requestId || !csrfToken) {
+    if (!requestId || !csrfToken || !csrfCookie) {
       res.status(403).type("text/plain").send("Missing CSRF or request token");
       return;
     }
@@ -145,7 +206,8 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
     if (
       !pending ||
       pending.expiresAt <= now ||
-      !timingSafeEqualStrings(pending.csrfToken, csrfToken)
+      !timingSafeEqualStrings(pending.csrfToken, csrfToken) ||
+      !timingSafeEqualStrings(pending.csrfToken, csrfCookie)
     ) {
       res.status(403).type("text/plain").send("Invalid or expired CSRF token");
       return;
@@ -231,6 +293,12 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
     if (pending.state) {
       redirectUrl.searchParams.set("state", pending.state);
     }
+    res.clearCookie(LOGIN_CSRF_COOKIE_NAME, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/authorize",
+      secure: this.isHttps,
+    });
     res.redirect(302, redirectUrl.href);
   }
 

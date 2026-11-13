@@ -86,6 +86,114 @@ describe("OAuth 2.1 DCR, PKCE authorization, and API key login", () => {
     expect(client.redirect_uris).toEqual(["http://127.0.0.1:9999/callback"]);
   });
 
+  it("POST /register allows https and loopback http redirect URIs and rejects non-loopback http or other schemes", async () => {
+    harness = await startTestServer();
+
+    for (const badUri of [
+      "http://example.com/callback",
+      "http://192.168.1.10:8080/callback",
+      "http://localhost.evil.com/callback",
+      "ftp://example.com/callback",
+      "custom://callback",
+    ]) {
+      const res = await fetch(`${harness.baseUrl}/register`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-forwarded-for": "198.51.100.10",
+        },
+        body: JSON.stringify({
+          client_name: "Bad Redirect Client",
+          redirect_uris: [badUri],
+        }),
+      });
+      expect(res.status, `Expected 400 for ${badUri}`).toBe(400);
+    }
+
+    for (const goodUri of [
+      "https://claude.ai/api/mcp/auth_callback",
+      "http://localhost/callback",
+      "http://localhost:8080/callback",
+      "http://127.0.0.1:9999/callback",
+      "http://[::1]:3000/callback",
+      "http://[::1]/callback",
+    ]) {
+      const res = await fetch(`${harness.baseUrl}/register`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-forwarded-for": "198.51.100.20",
+        },
+        body: JSON.stringify({
+          client_name: "Good Redirect Client",
+          redirect_uris: [goodUri],
+          token_endpoint_auth_method: "none",
+        }),
+      });
+      expect(res.status, `Expected 201 for ${goodUri}`).toBe(201);
+    }
+  });
+
+  it("POST /register caps redirect_uris at 10 entries", async () => {
+    harness = await startTestServer();
+
+    const tenUris = Array.from(
+      { length: 10 },
+      (_, i) => `https://app.example.com/callback/${i}`,
+    );
+    const okRes = await fetch(`${harness.baseUrl}/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_name: "Ten URIs Client",
+        redirect_uris: tenUris,
+        token_endpoint_auth_method: "none",
+      }),
+    });
+    expect(okRes.status).toBe(201);
+
+    const elevenUris = [
+      ...tenUris,
+      "https://app.example.com/callback/10",
+    ];
+    const tooManyRes = await fetch(`${harness.baseUrl}/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_name: "Eleven URIs Client",
+        redirect_uris: elevenUris,
+        token_endpoint_auth_method: "none",
+      }),
+    });
+    expect(tooManyRes.status).toBe(400);
+  });
+
+  it("POST /register caps client_name at 200 characters", async () => {
+    harness = await startTestServer();
+
+    const okRes = await fetch(`${harness.baseUrl}/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_name: "a".repeat(200),
+        redirect_uris: ["https://app.example.com/callback"],
+        token_endpoint_auth_method: "none",
+      }),
+    });
+    expect(okRes.status).toBe(201);
+
+    const tooLongRes = await fetch(`${harness.baseUrl}/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_name: "a".repeat(201),
+        redirect_uris: ["https://app.example.com/callback"],
+        token_endpoint_auth_method: "none",
+      }),
+    });
+    expect(tooLongRes.status).toBe(400);
+  });
+
   it("GET /authorize validates OAuth/PKCE params and renders a CSRF-protected login form", async () => {
     harness = await startTestServer();
     const { client_id } = await registerTestClient(harness.baseUrl);
@@ -166,12 +274,16 @@ describe("OAuth 2.1 DCR, PKCE authorization, and API key login", () => {
       `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent("http://127.0.0.1:9999/callback")}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=state123`,
     );
     expect(authRes.status).toBe(200);
+    const cookie = authRes.headers.get("set-cookie")!.split(";")[0]!.trim();
     const form1 = extractFormFields(await authRes.text());
 
     // Submit invalid key -> re-renders form with error message, no redirect
     const invalidKeyRes = await fetch(`${harness.baseUrl}/authorize/login`, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie,
+      },
       redirect: "manual",
       body: new URLSearchParams({
         request_id: form1.requestId,
@@ -189,7 +301,10 @@ describe("OAuth 2.1 DCR, PKCE authorization, and API key login", () => {
     const form2 = extractFormFields(errHtml);
     const validKeyRes = await fetch(`${harness.baseUrl}/authorize/login`, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie,
+      },
       redirect: "manual",
       body: new URLSearchParams({
         request_id: form2.requestId,
@@ -233,11 +348,15 @@ describe("OAuth 2.1 DCR, PKCE authorization, and API key login", () => {
     const authRes = await fetch(
       `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=s1`,
     );
+    const cookie = authRes.headers.get("set-cookie")!.split(";")[0]!.trim();
     const form = extractFormFields(await authRes.text());
 
     const loginRes = await fetch(`${harness.baseUrl}/authorize/login`, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie,
+      },
       redirect: "manual",
       body: new URLSearchParams({
         request_id: form.requestId,
@@ -317,10 +436,14 @@ describe("OAuth 2.1 DCR, PKCE authorization, and API key login", () => {
       const authRes = await fetch(
         `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(clientA.client_id)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256`,
       );
+      const cookie = authRes.headers.get("set-cookie")!.split(";")[0]!.trim();
       const form = extractFormFields(await authRes.text());
       const loginRes = await fetch(`${harness.baseUrl}/authorize/login`, {
         method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          cookie,
+        },
         redirect: "manual",
         body: new URLSearchParams({
           request_id: form.requestId,

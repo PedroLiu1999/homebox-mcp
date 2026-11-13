@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { chmodSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { OAuthClientInformationFull } from "@modelcontextprotocol/sdk/shared/auth.js";
@@ -32,15 +32,21 @@ export class SqliteStore {
   readonly db: DatabaseSync;
 
   constructor(databasePath: string) {
-    if (databasePath !== ":memory:") {
-      mkdirSync(dirname(databasePath), { recursive: true });
+    const isFileBacked = databasePath !== ":memory:";
+    if (isFileBacked) {
+      const dir = dirname(databasePath);
+      mkdirSync(dir, { recursive: true, mode: 0o700 });
+      chmodSync(dir, 0o700);
     }
     this.db = new DatabaseSync(databasePath);
-    if (databasePath !== ":memory:") {
+    if (isFileBacked) {
       this.db.exec("PRAGMA journal_mode = WAL;");
     }
     this.db.exec("PRAGMA foreign_keys = ON;");
     this.migrate();
+    if (isFileBacked) {
+      chmodSync(databasePath, 0o600);
+    }
   }
 
   private migrate(): void {
@@ -509,6 +515,46 @@ export class SqliteStore {
 
     revokeAccess();
     revokeRefresh();
+  }
+
+  pruneExpired(now: number = Math.floor(Date.now() / 1000)): {
+    pendingAuthRequests: number;
+    authorizationCodes: number;
+    accessTokens: number;
+    refreshTokens: number;
+  } {
+    const pendingAuthRequests = Number(
+      this.db
+        .prepare("DELETE FROM pending_auth_requests WHERE expires_at <= ?")
+        .run(now).changes,
+    );
+    const authorizationCodes = Number(
+      this.db
+        .prepare(
+          "DELETE FROM authorization_codes WHERE expires_at <= ? OR used_at IS NOT NULL",
+        )
+        .run(now).changes,
+    );
+    const accessTokens = Number(
+      this.db
+        .prepare(
+          "DELETE FROM oauth_access_tokens WHERE expires_at <= ? OR revoked_at IS NOT NULL",
+        )
+        .run(now).changes,
+    );
+    const refreshTokens = Number(
+      this.db
+        .prepare(
+          "DELETE FROM oauth_refresh_tokens WHERE expires_at <= ? OR revoked_at IS NOT NULL",
+        )
+        .run(now).changes,
+    );
+    return {
+      pendingAuthRequests,
+      authorizationCodes,
+      accessTokens,
+      refreshTokens,
+    };
   }
 
   close(): void {
