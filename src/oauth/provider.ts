@@ -38,17 +38,19 @@ const AUTH_CODE_TTL_SECONDS = 300;
 const ACCESS_TOKEN_TTL_SECONDS = 3600;
 const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 3600;
 
-const DISALLOWED_REDIRECT_SCHEMES = new Set([
-  "javascript:",
-  "data:",
-  "vbscript:",
-  "file:",
-]);
+const MAX_REDIRECT_URIS = 10;
+const MAX_CLIENT_NAME_LENGTH = 200;
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 function validateRedirectUris(redirectUris: string[]): void {
   if (!Array.isArray(redirectUris) || redirectUris.length === 0) {
     throw new InvalidClientMetadataError(
       "redirect_uris must be a non-empty array",
+    );
+  }
+  if (redirectUris.length > MAX_REDIRECT_URIS) {
+    throw new InvalidClientMetadataError(
+      `redirect_uris must contain at most ${MAX_REDIRECT_URIS} entries`,
     );
   }
   for (const uri of redirectUris) {
@@ -58,11 +60,32 @@ function validateRedirectUris(redirectUris: string[]): void {
     } catch {
       throw new InvalidClientMetadataError(`Invalid redirect_uri: ${uri}`);
     }
-    if (DISALLOWED_REDIRECT_SCHEMES.has(parsed.protocol.toLowerCase())) {
-      throw new InvalidClientMetadataError(
-        `Disallowed redirect_uri scheme: ${parsed.protocol}`,
-      );
+    const protocol = parsed.protocol.toLowerCase();
+    if (protocol === "https:") {
+      continue;
     }
+    if (
+      protocol === "http:" &&
+      LOOPBACK_HOSTNAMES.has(parsed.hostname.toLowerCase())
+    ) {
+      continue;
+    }
+    throw new InvalidClientMetadataError(
+      `Disallowed redirect_uri: ${uri}. Only https or loopback http (localhost, 127.0.0.1, [::1]) URIs are allowed.`,
+    );
+  }
+}
+
+function validateClientMetadata(client: OAuthClientInformationFull): void {
+  validateRedirectUris(client.redirect_uris);
+  if (
+    client.client_name !== undefined &&
+    (typeof client.client_name !== "string" ||
+      client.client_name.length > MAX_CLIENT_NAME_LENGTH)
+  ) {
+    throw new InvalidClientMetadataError(
+      `client_name must be at most ${MAX_CLIENT_NAME_LENGTH} characters`,
+    );
   }
 }
 
@@ -91,7 +114,7 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
       registerClient: async (
         client: OAuthClientInformationFull,
       ): Promise<OAuthClientInformationFull> => {
-        validateRedirectUris(client.redirect_uris);
+        validateClientMetadata(client);
         return this.store.saveClient(client);
       },
     };
