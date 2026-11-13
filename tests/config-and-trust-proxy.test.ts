@@ -144,6 +144,7 @@ describe("Express trust proxy wiring", () => {
 
     const res = await fetch(`${baseUrl}/__test-ip`, {
       headers: {
+        host: "127.0.0.1:3000",
         "x-forwarded-for": "198.51.100.10, 203.0.113.195",
         "x-forwarded-proto": "https",
       },
@@ -166,6 +167,7 @@ describe("Express trust proxy wiring", () => {
 
     const res = await fetch(`${baseUrl}/__test-ip`, {
       headers: {
+        host: "127.0.0.1:3000",
         "x-forwarded-for": "203.0.113.195",
         "x-forwarded-proto": "https",
       },
