@@ -217,20 +217,21 @@ ask IMAGE "Container image (Enter for default ghcr.io/pedroliu1999/homebox-mcp:l
 IMAGE="${IMAGE:-ghcr.io/pedroliu1999/homebox-mcp:latest}"
 write_env IMAGE "$IMAGE"
 
-# ── Stage 2: Homebox instance & HTTP port ────────────────────────────────
-stage "Homebox instance URL & HTTP port"
-say "Point the MCP server to your running Homebox instance (without a trailing slash)."
+# ── Stage 2: Homebox instance URL ────────────────────────────────────────
+stage "Homebox instance URL (HOMEBOX_URL)"
+say "Point the MCP server to your existing Homebox instance (without a trailing slash)."
 note "Examples: http://homebox:7745 (Docker network) or https://homebox.example.com"
 ask HOMEBOX_URL "HOMEBOX_URL:"
 HOMEBOX_URL="${HOMEBOX_URL%/}"
 write_env HOMEBOX_URL "$HOMEBOX_URL"
 
-ask PORT "Local HTTP port (Enter for 3000):" || true
+# ── Stage 3: MCP server port & public OAuth 2.1 origin ───────────────────
+stage "MCP server port & public OAuth 2.1 origin"
+say "Choose the port this MCP server container will listen on (not Homebox's port)."
+ask PORT "MCP server HTTP port (Enter for 3000):" || true
 PORT="${PORT:-3000}"
 write_env PORT "$PORT"
 
-# ── Stage 3: Public OAuth 2.1 origin ─────────────────────────────────────
-stage "Public OAuth 2.1 origin (MCP_PUBLIC_URL)"
 say "MCP clients use MCP_PUBLIC_URL for OAuth 2.1 discovery and redirect URIs."
 note "Behind a reverse proxy (Caddy/Traefik/Nginx), enter your external HTTPS URL (e.g. https://mcp.example.com)."
 note "For local testing only, press Enter to use http://localhost:${PORT}."
