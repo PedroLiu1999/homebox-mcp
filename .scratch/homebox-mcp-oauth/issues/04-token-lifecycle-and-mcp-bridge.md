@@ -4,7 +4,7 @@
 
 **Blocked by:** 02: Dynamic Client Registration and OAuth 2.1 PKCE flow with API key login
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] `POST /token` (`grant_type=refresh_token`) rotates the refresh token, invalidates the previous refresh token, and issues a new access token
 - [ ] `POST /revoke` (RFC 7009) revokes access or refresh tokens so subsequent `/mcp` or refresh requests fail with `401`/`400`

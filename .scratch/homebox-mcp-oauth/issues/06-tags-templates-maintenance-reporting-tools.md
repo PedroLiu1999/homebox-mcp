@@ -4,7 +4,7 @@
 
 **Blocked by:** 04: Token refresh, revocation, and authenticated MCP tool bridge
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] MCP tools cover listing, creating, updating, and deleting tags (`/v1/tags`)
 - [ ] MCP tools cover listing/managing entity types (`/v1/entity-types`) and templates (`/v1/templates`, including creating an item from a template)

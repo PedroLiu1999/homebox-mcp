@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] TypeScript project builds cleanly and passes typechecking and Vitest integration tests
 - [ ] `GET /health` returns `200 OK`

@@ -4,7 +4,7 @@
 
 **Blocked by:** 02: Dynamic Client Registration and OAuth 2.1 PKCE flow with API key login
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] The `GET /authorize` login form accepts either a Homebox username/password pair or a direct `hb_...` API key
 - [ ] Submitting username/password calls Homebox `POST /api/v1/users/login` and then `POST /api/v1/users/self/api-keys` using the temporary session token

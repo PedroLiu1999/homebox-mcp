@@ -4,7 +4,7 @@
 
 **Blocked by:** 01: Project scaffold, HTTP server, and OAuth metadata discovery
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] `POST /register` (RFC 7591) validates redirect URIs, persists client metadata in SQLite, and returns a `client_id`
 - [ ] `GET /authorize` validates `client_id`, `redirect_uri`, `response_type=code`, `code_challenge`, and `code_challenge_method=S256`, rendering a CSRF-protected login/consent HTML form
