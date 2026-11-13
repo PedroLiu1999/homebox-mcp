@@ -255,8 +255,24 @@ else
   write_env TOKEN_ENCRYPTION_KEY "$TOKEN_ENCRYPTION_KEY"
 fi
 
-# ── Stage 5: Pull pre-built image & start Docker Compose ─────────────────
-stage "Pull pre-built image & start Docker Compose"
+# ── Stage 5: Download docker-compose.yml, pull image & start ─────────────
+stage "Download docker-compose.yml, pull image & start"
+COMPOSE_URL="https://raw.githubusercontent.com/PedroLiu1999/homebox-mcp/main/docker-compose.yml"
+if [[ ! -f "docker-compose.yml" ]]; then
+  step "Downloading docker-compose.yml from GitHub..."
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$COMPOSE_URL" -o docker-compose.yml
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO docker-compose.yml "$COMPOSE_URL"
+  else
+    warn "Neither curl nor wget found; download $COMPOSE_URL manually."
+    exit 1
+  fi
+  printf '  %s✓ downloaded%s docker-compose.yml\n' "$GREEN" "$RESET"
+else
+  note "Using existing docker-compose.yml in $(pwd)."
+fi
+
 say "Ready to pull $IMAGE and start the container in the background."
 if confirm "Run 'docker compose pull && docker compose up -d' now?"; then
   docker compose pull

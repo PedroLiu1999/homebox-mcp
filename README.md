@@ -45,17 +45,27 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ## Running with Docker Compose
 
-### Option 1: Interactive Quick Start Wizard
+### Option 1: Interactive Quick Start Wizard (No Clone Required)
 
-Run the interactive setup wizard to configure `.env`, generate `TOKEN_ENCRYPTION_KEY`, pull the pre-built GHCR image, and start the stack:
+Create a directory for your deployment, download the setup wizard, and run it — it will configure `.env`, generate `TOKEN_ENCRYPTION_KEY`, download `docker-compose.yml`, pull the pre-built GHCR image, and start the stack:
 
 ```bash
-./scripts/quickstart.sh
+mkdir -p homebox-mcp && cd homebox-mcp
+curl -fsSLO https://raw.githubusercontent.com/PedroLiu1999/homebox-mcp/main/scripts/quickstart.sh
+chmod +x quickstart.sh
+./quickstart.sh
 ```
 
 ### Option 2: Manual Setup
 
-1. Copy `.env.example` to `.env` and fill in your values:
+1. Clone the repository and enter the directory:
+
+   ```bash
+   git clone https://github.com/PedroLiu1999/homebox-mcp.git
+   cd homebox-mcp
+   ```
+
+2. Copy `.env.example` to `.env` and fill in your values:
 
    ```bash
    cp .env.example .env
@@ -63,7 +73,7 @@ Run the interactive setup wizard to configure `.env`, generate `TOKEN_ENCRYPTION
 
    Update `IMAGE` (e.g. `ghcr.io/<your-github-username>/homebox-mcp:latest`), `HOMEBOX_URL`, `MCP_PUBLIC_URL`, and `TOKEN_ENCRYPTION_KEY`.
 
-2. Pull and start the container:
+3. Pull and start the container:
 
    ```bash
    docker compose pull
@@ -72,7 +82,7 @@ Run the interactive setup wizard to configure `.env`, generate `TOKEN_ENCRYPTION
 
    The SQLite database is persisted in the `homebox_mcp_data` named Docker volume mounted at `/data`.
 
-3. Verify the server is healthy:
+4. Verify the server is healthy:
 
    ```bash
    curl http://localhost:3000/health
