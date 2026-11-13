@@ -83,7 +83,7 @@ describe("HTTP security headers, body limits, and error handling", () => {
     }
   });
 
-  it("applies helmet security headers, disables X-Powered-By, and sets CSP allowing inline styles and form-action without inline scripts", async () => {
+  it("applies helmet security headers, disables X-Powered-By, and sets CSP allowing inline styles without inline scripts or blocking OAuth redirects", async () => {
     harness = await startTestServer();
     const res = await fetch(`${harness.baseUrl}/health`);
 
@@ -97,7 +97,7 @@ describe("HTTP security headers, body limits, and error handling", () => {
     expect(csp).toContain("script-src 'self'");
     expect(csp).not.toMatch(/script-src[^;]*'unsafe-inline'/);
     expect(csp).toMatch(/style-src[^;]*'unsafe-inline'/);
-    expect(csp).toContain("form-action 'self'");
+    expect(csp).not.toContain("form-action 'self'");
   });
 
   it("returns 413 when JSON or URL-encoded request bodies exceed configured limits", async () => {

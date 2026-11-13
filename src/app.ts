@@ -104,7 +104,8 @@ export function createAppRuntime(
           scriptSrc: ["'self'"],
           scriptSrcAttr: ["'none'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
-          formAction: ["'self'"],
+          // OAuth login forms 302-redirect to external client redirect_uris; form-action 'self' blocks those redirects in Chromium.
+          formAction: null,
           frameAncestors: ["'none'"],
           objectSrc: ["'none'"],
           baseUri: ["'self'"],
