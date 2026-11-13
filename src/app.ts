@@ -14,9 +14,31 @@ import { SqliteStore } from "./storage/sqlite.js";
 
 export function createApp(config: AppConfig): Express {
   const app = express();
+  const issuerUrl = new URL(config.mcpPublicUrl);
+  const expectedHost = issuerUrl.host.toLowerCase();
+  const expectedOrigin = issuerUrl.origin.toLowerCase();
+  const loopbackHostPattern = /^(localhost|127\.0\.0\.1)(:\d+)?$/i;
+
+  app.use((req, res, next) => {
+    const host = req.headers.host?.toLowerCase();
+    const isLoopbackHealthCheck =
+      req.path === "/health" && host !== undefined && loopbackHostPattern.test(host);
+    if (!host || (host !== expectedHost && !isLoopbackHealthCheck)) {
+      res.status(403).json({ error: "Forbidden: invalid Host header" });
+      return;
+    }
+
+    const origin = req.headers.origin;
+    if (origin !== undefined && origin.toLowerCase() !== expectedOrigin) {
+      res.status(403).json({ error: "Forbidden: invalid Origin header" });
+      return;
+    }
+
+    next();
+  });
+
   app.use(express.json());
 
-  const issuerUrl = new URL(config.mcpPublicUrl);
   const store = new SqliteStore(config.databasePath);
   const encryptionKey = parseEncryptionKey(config.tokenEncryptionKey);
   const provider = new HomeboxOAuthProvider({
