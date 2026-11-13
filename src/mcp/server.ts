@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { HomeboxClient } from "../homebox/client.js";
+import { registerEntityTools } from "./tools/entities.js";
 import { registerMaintenanceTools } from "./tools/maintenance.js";
 import { registerReportingTools } from "./tools/reporting.js";
 import { runHomeboxTool, tenantSchema } from "./tools/shared.js";
@@ -48,6 +49,7 @@ export function createHomeboxMcpServer(
   );
 
   const ctx = { homeboxClient, onUnauthorized };
+  registerEntityTools(server, ctx);
   registerTagTools(server, ctx);
   registerTemplateTools(server, ctx);
   registerMaintenanceTools(server, ctx);
