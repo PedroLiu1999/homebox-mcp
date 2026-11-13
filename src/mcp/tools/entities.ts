@@ -1,6 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
+  customFieldSchema,
+  idSchema,
   runHomeboxTool,
   tenantSchema,
   type ToolRegistrationContext,
@@ -40,17 +42,7 @@ const entityMutableFieldsSchema = {
   archived: z.boolean().optional().describe("Whether entity is archived"),
   notes: z.string().optional().describe("Additional notes"),
   fields: z
-    .array(
-      z.object({
-        id: z.string().optional(),
-        name: z.string().min(1),
-        type: z.string().min(1),
-        textValue: z.string().optional(),
-        numberValue: z.number().optional(),
-        booleanValue: z.boolean().optional(),
-        timeValue: z.string().optional(),
-      }),
-    )
+    .array(customFieldSchema.extend({ id: z.string().optional() }))
     .optional()
     .describe("Custom entity fields"),
 };
@@ -115,7 +107,7 @@ export function registerEntityTools(
       description:
         "Get detailed information about a single Homebox entity (item or location) by its ID.",
       inputSchema: {
-        id: z.string().min(1).describe("Homebox entity ID"),
+        id: idSchema.describe("Homebox entity ID"),
         tenant: tenantSchema,
       },
     },
@@ -147,7 +139,7 @@ export function registerEntityTools(
       description:
         "Replace/update a Homebox entity by ID (PUT /v1/entities/{id}).",
       inputSchema: {
-        id: z.string().min(1).describe("Homebox entity ID"),
+        id: idSchema.describe("Homebox entity ID"),
         name: z.string().min(1).describe("Entity name"),
         ...entityMutableFieldsSchema,
         tenant: tenantSchema,
@@ -166,7 +158,7 @@ export function registerEntityTools(
       description:
         "Partially update a Homebox entity by ID (PATCH /v1/entities/{id}), such as moving location or updating quantity.",
       inputSchema: {
-        id: z.string().min(1).describe("Homebox entity ID"),
+        id: idSchema.describe("Homebox entity ID"),
         name: z.string().min(1).optional().describe("Entity name"),
         ...entityMutableFieldsSchema,
         tenant: tenantSchema,
@@ -184,7 +176,7 @@ export function registerEntityTools(
     {
       description: "Delete a Homebox entity (item or location) by ID.",
       inputSchema: {
-        id: z.string().min(1).describe("Homebox entity ID"),
+        id: idSchema.describe("Homebox entity ID"),
         tenant: tenantSchema,
       },
     },
@@ -221,7 +213,7 @@ export function registerEntityTools(
       description:
         "Retrieve the breadcrumb path of ancestor locations for a Homebox entity.",
       inputSchema: {
-        id: z.string().min(1).describe("Homebox entity ID"),
+        id: idSchema.describe("Homebox entity ID"),
         tenant: tenantSchema,
       },
     },

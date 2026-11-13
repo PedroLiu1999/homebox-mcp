@@ -1,3 +1,30 @@
+import type {
+  HomeboxBillOfMaterialsReport,
+  HomeboxCreateItemFromTemplateRequest,
+  HomeboxEntity,
+  HomeboxEntityCreateRequest,
+  HomeboxEntityListParams,
+  HomeboxEntityListResponse,
+  HomeboxEntityPatchRequest,
+  HomeboxEntityPathNode,
+  HomeboxEntityTreeNode,
+  HomeboxEntityType,
+  HomeboxEntityTypeUpsertRequest,
+  HomeboxEntityUpdateRequest,
+  HomeboxFieldValueEntry,
+  HomeboxGroupListResponse,
+  HomeboxGroupStatistics,
+  HomeboxMaintenanceEntry,
+  HomeboxMaintenanceStatus,
+  HomeboxMaintenanceUpsertRequest,
+  HomeboxStatus,
+  HomeboxTag,
+  HomeboxTagUpsertRequest,
+  HomeboxTemplate,
+  HomeboxTemplateUpsertRequest,
+  HomeboxUserSelfResponse,
+} from "./types.js";
+
 export interface HomeboxUserInfo {
   userId?: string;
   username?: string;
@@ -106,44 +133,52 @@ export class HomeboxClient {
     return parsed as T;
   }
 
-  getCurrentUser(tenant?: string): Promise<unknown> {
-    return this.request("/api/v1/users/self", { tenant });
+  getStatus(tenant?: string): Promise<HomeboxStatus> {
+    return this.request<HomeboxStatus>("/api/v1/status", { tenant });
   }
 
-  listGroups(tenant?: string): Promise<unknown> {
-    return this.request("/api/v1/groups/all", { tenant });
-  }
-
-  listEntities(
-    params: {
-      q?: string;
-      page?: number;
-      pageSize?: number;
-      labels?: string[];
-      locations?: string[];
-      parentIds?: string[];
-      entityType?: string;
-      assetId?: string;
-      orderBy?: string;
-      includeArchived?: boolean;
-      tenant?: string;
-    } = {},
-  ): Promise<unknown> {
-    const { tenant, ...query } = params;
-    return this.request("/api/v1/entities", { tenant, query });
-  }
-
-  getEntity(id: string, tenant?: string): Promise<unknown> {
-    return this.request(`/api/v1/entities/${encodeURIComponent(id)}`, {
+  getCurrentUser(tenant?: string): Promise<HomeboxUserSelfResponse> {
+    return this.request<HomeboxUserSelfResponse>("/api/v1/users/self", {
       tenant,
     });
   }
 
+  listGroups(tenant?: string): Promise<HomeboxGroupListResponse> {
+    return this.request<HomeboxGroupListResponse>("/api/v1/groups/all", {
+      tenant,
+    });
+  }
+
+  getGroupStatistics(tenant?: string): Promise<HomeboxGroupStatistics> {
+    return this.request<HomeboxGroupStatistics>("/api/v1/groups/statistics", {
+      tenant,
+    });
+  }
+
+  listEntities(
+    params: HomeboxEntityListParams = {},
+  ): Promise<HomeboxEntityListResponse> {
+    const { tenant, ...query } = params;
+    return this.request<HomeboxEntityListResponse>("/api/v1/entities", {
+      tenant,
+      query,
+    });
+  }
+
+  getEntity(id: string, tenant?: string): Promise<HomeboxEntity> {
+    return this.request<HomeboxEntity>(
+      `/api/v1/entities/${encodeURIComponent(id)}`,
+      {
+        tenant,
+      },
+    );
+  }
+
   createEntity(
-    body: Record<string, unknown>,
+    body: HomeboxEntityCreateRequest,
     tenant?: string,
-  ): Promise<unknown> {
-    return this.request("/api/v1/entities", {
+  ): Promise<HomeboxEntity> {
+    return this.request<HomeboxEntity>("/api/v1/entities", {
       method: "POST",
       body,
       tenant,
@@ -152,30 +187,36 @@ export class HomeboxClient {
 
   updateEntity(
     id: string,
-    body: Record<string, unknown>,
+    body: HomeboxEntityUpdateRequest,
     tenant?: string,
-  ): Promise<unknown> {
-    return this.request(`/api/v1/entities/${encodeURIComponent(id)}`, {
-      method: "PUT",
-      body,
-      tenant,
-    });
+  ): Promise<HomeboxEntity> {
+    return this.request<HomeboxEntity>(
+      `/api/v1/entities/${encodeURIComponent(id)}`,
+      {
+        method: "PUT",
+        body,
+        tenant,
+      },
+    );
   }
 
   patchEntity(
     id: string,
-    body: Record<string, unknown>,
+    body: HomeboxEntityPatchRequest,
     tenant?: string,
-  ): Promise<unknown> {
-    return this.request(`/api/v1/entities/${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      body,
-      tenant,
-    });
+  ): Promise<HomeboxEntity> {
+    return this.request<HomeboxEntity>(
+      `/api/v1/entities/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        body,
+        tenant,
+      },
+    );
   }
 
-  deleteEntity(id: string, tenant?: string): Promise<unknown> {
-    return this.request(`/api/v1/entities/${encodeURIComponent(id)}`, {
+  deleteEntity(id: string, tenant?: string): Promise<void> {
+    return this.request<void>(`/api/v1/entities/${encodeURIComponent(id)}`, {
       method: "DELETE",
       tenant,
     });
@@ -183,26 +224,248 @@ export class HomeboxClient {
 
   getEntityTree(
     params: { withItems?: boolean; tenant?: string } = {},
-  ): Promise<unknown> {
+  ): Promise<HomeboxEntityTreeNode[]> {
     const { tenant, ...query } = params;
-    return this.request("/api/v1/entities/tree", { tenant, query });
-  }
-
-  getEntityPath(id: string, tenant?: string): Promise<unknown> {
-    return this.request(`/api/v1/entities/${encodeURIComponent(id)}/path`, {
+    return this.request<HomeboxEntityTreeNode[]>("/api/v1/entities/tree", {
       tenant,
+      query,
     });
   }
 
-  getEntityFields(tenant?: string): Promise<unknown> {
-    return this.request("/api/v1/entities/fields", { tenant });
+  getEntityPath(id: string, tenant?: string): Promise<HomeboxEntityPathNode[]> {
+    return this.request<HomeboxEntityPathNode[]>(
+      `/api/v1/entities/${encodeURIComponent(id)}/path`,
+      {
+        tenant,
+      },
+    );
+  }
+
+  getEntityFields(tenant?: string): Promise<string[]> {
+    return this.request<string[]>("/api/v1/entities/fields", { tenant });
   }
 
   getEntityFieldValues(
     params: { field?: string; tenant?: string } = {},
-  ): Promise<unknown> {
+  ): Promise<HomeboxFieldValueEntry[] | string[]> {
     const { tenant, ...query } = params;
-    return this.request("/api/v1/entities/fields/values", { tenant, query });
+    return this.request<HomeboxFieldValueEntry[] | string[]>(
+      "/api/v1/entities/fields/values",
+      { tenant, query },
+    );
+  }
+
+  listTags(tenant?: string): Promise<HomeboxTag[]> {
+    return this.request<HomeboxTag[]>("/api/v1/tags", { tenant });
+  }
+
+  getTag(id: string, tenant?: string): Promise<HomeboxTag> {
+    return this.request<HomeboxTag>(
+      `/api/v1/tags/${encodeURIComponent(id)}`,
+      { tenant },
+    );
+  }
+
+  createTag(
+    body: HomeboxTagUpsertRequest,
+    tenant?: string,
+  ): Promise<HomeboxTag> {
+    return this.request<HomeboxTag>("/api/v1/tags", {
+      method: "POST",
+      tenant,
+      body,
+    });
+  }
+
+  updateTag(
+    id: string,
+    body: HomeboxTagUpsertRequest,
+    tenant?: string,
+  ): Promise<HomeboxTag> {
+    return this.request<HomeboxTag>(`/api/v1/tags/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      tenant,
+      body,
+    });
+  }
+
+  deleteTag(id: string, tenant?: string): Promise<void> {
+    return this.request<void>(`/api/v1/tags/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      tenant,
+    });
+  }
+
+  listEntityTypes(tenant?: string): Promise<HomeboxEntityType[]> {
+    return this.request<HomeboxEntityType[]>("/api/v1/entity-types", {
+      tenant,
+    });
+  }
+
+  createEntityType(
+    body: HomeboxEntityTypeUpsertRequest,
+    tenant?: string,
+  ): Promise<HomeboxEntityType> {
+    return this.request<HomeboxEntityType>("/api/v1/entity-types", {
+      method: "POST",
+      tenant,
+      body,
+    });
+  }
+
+  updateEntityType(
+    id: string,
+    body: HomeboxEntityTypeUpsertRequest,
+    tenant?: string,
+  ): Promise<HomeboxEntityType> {
+    return this.request<HomeboxEntityType>(
+      `/api/v1/entity-types/${encodeURIComponent(id)}`,
+      {
+        method: "PUT",
+        tenant,
+        body,
+      },
+    );
+  }
+
+  deleteEntityType(id: string, tenant?: string): Promise<void> {
+    return this.request<void>(
+      `/api/v1/entity-types/${encodeURIComponent(id)}`,
+      {
+        method: "DELETE",
+        tenant,
+      },
+    );
+  }
+
+  listTemplates(tenant?: string): Promise<HomeboxTemplate[]> {
+    return this.request<HomeboxTemplate[]>("/api/v1/templates", { tenant });
+  }
+
+  getTemplate(id: string, tenant?: string): Promise<HomeboxTemplate> {
+    return this.request<HomeboxTemplate>(
+      `/api/v1/templates/${encodeURIComponent(id)}`,
+      { tenant },
+    );
+  }
+
+  createTemplate(
+    body: HomeboxTemplateUpsertRequest,
+    tenant?: string,
+  ): Promise<HomeboxTemplate> {
+    return this.request<HomeboxTemplate>("/api/v1/templates", {
+      method: "POST",
+      tenant,
+      body,
+    });
+  }
+
+  updateTemplate(
+    id: string,
+    body: HomeboxTemplateUpsertRequest,
+    tenant?: string,
+  ): Promise<HomeboxTemplate> {
+    return this.request<HomeboxTemplate>(
+      `/api/v1/templates/${encodeURIComponent(id)}`,
+      {
+        method: "PUT",
+        tenant,
+        body,
+      },
+    );
+  }
+
+  deleteTemplate(id: string, tenant?: string): Promise<void> {
+    return this.request<void>(`/api/v1/templates/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      tenant,
+    });
+  }
+
+  createItemFromTemplate(
+    id: string,
+    body: HomeboxCreateItemFromTemplateRequest,
+    tenant?: string,
+  ): Promise<HomeboxEntity> {
+    return this.request<HomeboxEntity>(
+      `/api/v1/templates/${encodeURIComponent(id)}/create-item`,
+      {
+        method: "POST",
+        tenant,
+        body,
+      },
+    );
+  }
+
+  listMaintenance(
+    params: { status?: HomeboxMaintenanceStatus; tenant?: string } = {},
+  ): Promise<HomeboxMaintenanceEntry[]> {
+    const { tenant, status } = params;
+    return this.request<HomeboxMaintenanceEntry[]>("/api/v1/maintenance", {
+      tenant,
+      query: status ? { status } : undefined,
+    });
+  }
+
+  listEntityMaintenance(
+    entityId: string,
+    params: { status?: HomeboxMaintenanceStatus; tenant?: string } = {},
+  ): Promise<HomeboxMaintenanceEntry[]> {
+    const { tenant, status } = params;
+    return this.request<HomeboxMaintenanceEntry[]>(
+      `/api/v1/entities/${encodeURIComponent(entityId)}/maintenance`,
+      {
+        tenant,
+        query: status ? { status } : undefined,
+      },
+    );
+  }
+
+  createEntityMaintenance(
+    entityId: string,
+    body: HomeboxMaintenanceUpsertRequest,
+    tenant?: string,
+  ): Promise<HomeboxMaintenanceEntry> {
+    return this.request<HomeboxMaintenanceEntry>(
+      `/api/v1/entities/${encodeURIComponent(entityId)}/maintenance`,
+      {
+        method: "POST",
+        tenant,
+        body,
+      },
+    );
+  }
+
+  updateMaintenance(
+    id: string,
+    body: HomeboxMaintenanceUpsertRequest,
+    tenant?: string,
+  ): Promise<HomeboxMaintenanceEntry> {
+    return this.request<HomeboxMaintenanceEntry>(
+      `/api/v1/maintenance/${encodeURIComponent(id)}`,
+      {
+        method: "PUT",
+        tenant,
+        body,
+      },
+    );
+  }
+
+  deleteMaintenance(id: string, tenant?: string): Promise<void> {
+    return this.request<void>(
+      `/api/v1/maintenance/${encodeURIComponent(id)}`,
+      {
+        method: "DELETE",
+        tenant,
+      },
+    );
+  }
+
+  getBillOfMaterials(tenant?: string): Promise<HomeboxBillOfMaterialsReport> {
+    return this.request<HomeboxBillOfMaterialsReport>(
+      "/api/v1/reporting/bill-of-materials",
+      { tenant },
+    );
   }
 }
 

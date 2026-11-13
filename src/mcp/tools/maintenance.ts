@@ -51,11 +51,7 @@ export function registerMaintenanceTools(
     },
     async ({ status, tenant }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request("/api/v1/maintenance", {
-            tenant,
-            query: status ? { status } : undefined,
-          }),
+        () => homeboxClient.listMaintenance({ status, tenant }),
         onUnauthorized,
       ),
   );
@@ -72,14 +68,7 @@ export function registerMaintenanceTools(
     },
     async ({ entityId, status, tenant }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request(
-            `/api/v1/entities/${encodeURIComponent(entityId)}/maintenance`,
-            {
-              tenant,
-              query: status ? { status } : undefined,
-            },
-          ),
+        () => homeboxClient.listEntityMaintenance(entityId, { status, tenant }),
         onUnauthorized,
       ),
   );
@@ -96,15 +85,7 @@ export function registerMaintenanceTools(
     },
     async ({ entityId, tenant, ...body }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request(
-            `/api/v1/entities/${encodeURIComponent(entityId)}/maintenance`,
-            {
-              method: "POST",
-              tenant,
-              body,
-            },
-          ),
+        () => homeboxClient.createEntityMaintenance(entityId, body, tenant),
         onUnauthorized,
       ),
   );
@@ -121,15 +102,7 @@ export function registerMaintenanceTools(
     },
     async ({ id, tenant, ...body }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request(
-            `/api/v1/maintenance/${encodeURIComponent(id)}`,
-            {
-              method: "PUT",
-              tenant,
-              body,
-            },
-          ),
+        () => homeboxClient.updateMaintenance(id, body, tenant),
         onUnauthorized,
       ),
   );
@@ -145,14 +118,7 @@ export function registerMaintenanceTools(
     },
     async ({ id, tenant }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request(
-            `/api/v1/maintenance/${encodeURIComponent(id)}`,
-            {
-              method: "DELETE",
-              tenant,
-            },
-          ),
+        () => homeboxClient.deleteMaintenance(id, tenant),
         onUnauthorized,
       ),
   );

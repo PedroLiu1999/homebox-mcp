@@ -27,7 +27,10 @@ import {
   loginAndMintHomeboxApiKey,
   verifyHomeboxApiKey,
 } from "../homebox/client.js";
-import type { SqliteStore } from "../storage/sqlite.js";
+import type {
+  AuthorizationCodeRecord,
+  SqliteStore,
+} from "../storage/sqlite.js";
 import { renderAuthorizePage } from "./authorize-page.js";
 
 const PENDING_AUTH_TTL_SECONDS = 600;
@@ -231,20 +234,32 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
     res.redirect(302, redirectUrl.href);
   }
 
-  async challengeForAuthorizationCode(
-    client: OAuthClientInformationFull,
+  private getValidAuthorizationCode(
     authorizationCode: string,
-  ): Promise<string> {
-    const record = this.store.getAuthorizationCode(hashToken(authorizationCode));
-    const now = Math.floor(Date.now() / 1000);
+    clientId: string,
+    now = Math.floor(Date.now() / 1000),
+  ): { codeHash: string; record: AuthorizationCodeRecord } {
+    const codeHash = hashToken(authorizationCode);
+    const record = this.store.getAuthorizationCode(codeHash);
     if (
       !record ||
-      record.clientId !== client.client_id ||
+      record.clientId !== clientId ||
       record.usedAt !== null ||
       record.expiresAt <= now
     ) {
       throw new InvalidGrantError("Invalid or expired authorization code");
     }
+    return { codeHash, record };
+  }
+
+  async challengeForAuthorizationCode(
+    client: OAuthClientInformationFull,
+    authorizationCode: string,
+  ): Promise<string> {
+    const { record } = this.getValidAuthorizationCode(
+      authorizationCode,
+      client.client_id,
+    );
     return record.codeChallenge;
   }
 
@@ -254,18 +269,12 @@ export class HomeboxOAuthProvider implements OAuthServerProvider {
     _codeVerifier?: string,
     redirectUri?: string,
   ): Promise<OAuthTokens> {
-    const codeHash = hashToken(authorizationCode);
-    const record = this.store.getAuthorizationCode(codeHash);
     const now = Math.floor(Date.now() / 1000);
-
-    if (
-      !record ||
-      record.clientId !== client.client_id ||
-      record.usedAt !== null ||
-      record.expiresAt <= now
-    ) {
-      throw new InvalidGrantError("Invalid or expired authorization code");
-    }
+    const { codeHash, record } = this.getValidAuthorizationCode(
+      authorizationCode,
+      client.client_id,
+      now,
+    );
 
     if (redirectUri !== undefined && redirectUri !== record.redirectUri) {
       throw new InvalidGrantError("redirect_uri mismatch");

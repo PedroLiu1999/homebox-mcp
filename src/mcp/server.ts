@@ -23,6 +23,19 @@ export function createHomeboxMcpServer(
   });
 
   server.registerTool(
+    "get_homebox_status",
+    {
+      description:
+        "Get Homebox server status and version information (GET /api/v1/status).",
+      inputSchema: {
+        tenant: tenantSchema,
+      },
+    },
+    async ({ tenant }) =>
+      runHomeboxTool(() => homeboxClient.getStatus(tenant), onUnauthorized),
+  );
+
+  server.registerTool(
     "get_current_user",
     {
       description:

@@ -31,10 +31,7 @@ export function registerTagTools(
       },
     },
     async ({ tenant }) =>
-      runHomeboxTool(
-        () => homeboxClient.request("/api/v1/tags", { tenant }),
-        onUnauthorized,
-      ),
+      runHomeboxTool(() => homeboxClient.listTags(tenant), onUnauthorized),
   );
 
   server.registerTool(
@@ -47,13 +44,7 @@ export function registerTagTools(
       },
     },
     async ({ id, tenant }) =>
-      runHomeboxTool(
-        () =>
-          homeboxClient.request(`/api/v1/tags/${encodeURIComponent(id)}`, {
-            tenant,
-          }),
-        onUnauthorized,
-      ),
+      runHomeboxTool(() => homeboxClient.getTag(id, tenant), onUnauthorized),
   );
 
   server.registerTool(
@@ -67,12 +58,7 @@ export function registerTagTools(
     },
     async ({ tenant, ...body }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request("/api/v1/tags", {
-            method: "POST",
-            tenant,
-            body,
-          }),
+        () => homeboxClient.createTag(body, tenant),
         onUnauthorized,
       ),
   );
@@ -89,12 +75,7 @@ export function registerTagTools(
     },
     async ({ id, tenant, ...body }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request(`/api/v1/tags/${encodeURIComponent(id)}`, {
-            method: "PUT",
-            tenant,
-            body,
-          }),
+        () => homeboxClient.updateTag(id, body, tenant),
         onUnauthorized,
       ),
   );
@@ -109,13 +90,6 @@ export function registerTagTools(
       },
     },
     async ({ id, tenant }) =>
-      runHomeboxTool(
-        () =>
-          homeboxClient.request(`/api/v1/tags/${encodeURIComponent(id)}`, {
-            method: "DELETE",
-            tenant,
-          }),
-        onUnauthorized,
-      ),
+      runHomeboxTool(() => homeboxClient.deleteTag(id, tenant), onUnauthorized),
   );
 }

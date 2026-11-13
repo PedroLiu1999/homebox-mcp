@@ -303,4 +303,76 @@ describe("Authenticated MCP bridge and initial Homebox tools", () => {
     });
     expect(nextHttpRes.status).toBe(401);
   });
+
+  it("executes get_homebox_status over Streamable HTTP MCP against GET /api/v1/status", async () => {
+    harness = await startTestServer();
+    const seenStatusRequests: Array<{
+      url: string | undefined;
+      method: string | undefined;
+      auth: string | undefined;
+      tenant: string | string[] | undefined;
+    }> = [];
+
+    harness.setHomeboxHandler((req, res) => {
+      if (
+        req.url === "/api/v1/users/self" &&
+        req.method === "GET" &&
+        req.headers.authorization === "Bearer hb_status_key_123"
+      ) {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ item: { id: "user-4", username: "dave" } }));
+        return;
+      }
+      if (
+        req.url === "/api/v1/status" &&
+        req.method === "GET" &&
+        req.headers.authorization === "Bearer hb_status_key_123"
+      ) {
+        seenStatusRequests.push({
+          url: req.url,
+          method: req.method,
+          auth: req.headers.authorization,
+          tenant: req.headers["x-tenant"],
+        });
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(
+          JSON.stringify({
+            version: "v0.18.0",
+            health: true,
+            title: "Homebox",
+          }),
+        );
+        return;
+      }
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "Not found" }));
+    });
+
+    const { accessToken } = await completeOAuthFlow(
+      harness,
+      "hb_status_key_123",
+    );
+    client = await connectMcpClient(harness.baseUrl, accessToken);
+
+    const toolsList = await client.listTools();
+    expect(toolsList.tools.map((t) => t.name)).toContain("get_homebox_status");
+
+    const statusRes = await client.callTool({
+      name: "get_homebox_status",
+      arguments: { tenant: "grp-status" },
+    });
+    expect(statusRes.isError).toBeFalsy();
+    const parsed = JSON.parse(
+      (statusRes.content[0] as { text: string }).text,
+    ) as { version: string; health: boolean; title: string };
+    expect(parsed.version).toBe("v0.18.0");
+    expect(parsed.health).toBe(true);
+    expect(seenStatusRequests).toHaveLength(1);
+    expect(seenStatusRequests[0]).toEqual({
+      url: "/api/v1/status",
+      method: "GET",
+      auth: "Bearer hb_status_key_123",
+      tenant: "grp-status",
+    });
+  });
 });

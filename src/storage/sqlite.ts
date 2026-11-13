@@ -464,37 +464,34 @@ export class SqliteStore {
     }
   }
 
+  private revokeTokensInTable(
+    table: "oauth_access_tokens" | "oauth_refresh_tokens",
+    tokenHash: string,
+    clientId: string,
+    now: number,
+  ): number {
+    const res = this.db
+      .prepare(
+        `UPDATE ${table}
+         SET revoked_at = ?
+         WHERE token_hash = ?
+           AND revoked_at IS NULL
+           AND grant_id IN (SELECT id FROM oauth_grants WHERE client_id = ?)`,
+      )
+      .run(now, tokenHash, clientId);
+    return Number(res.changes);
+  }
+
   revokeToken(
     tokenHash: string,
     clientId: string,
     now: number,
     hint?: string,
   ): void {
-    const revokeAccess = (): number => {
-      const res = this.db
-        .prepare(
-          `UPDATE oauth_access_tokens
-           SET revoked_at = ?
-           WHERE token_hash = ?
-             AND revoked_at IS NULL
-             AND grant_id IN (SELECT id FROM oauth_grants WHERE client_id = ?)`,
-        )
-        .run(now, tokenHash, clientId);
-      return Number(res.changes);
-    };
-
-    const revokeRefresh = (): number => {
-      const res = this.db
-        .prepare(
-          `UPDATE oauth_refresh_tokens
-           SET revoked_at = ?
-           WHERE token_hash = ?
-             AND revoked_at IS NULL
-             AND grant_id IN (SELECT id FROM oauth_grants WHERE client_id = ?)`,
-        )
-        .run(now, tokenHash, clientId);
-      return Number(res.changes);
-    };
+    const revokeAccess = (): number =>
+      this.revokeTokensInTable("oauth_access_tokens", tokenHash, clientId, now);
+    const revokeRefresh = (): number =>
+      this.revokeTokensInTable("oauth_refresh_tokens", tokenHash, clientId, now);
 
     if (hint === "access_token") {
       if (revokeAccess() === 0) {

@@ -6,12 +6,6 @@ import {
   type ToolRegistrationContext,
 } from "./shared.js";
 
-interface HomeboxEntityWithAttachments {
-  id?: string;
-  name?: string;
-  attachments?: unknown[];
-}
-
 /**
  * Registers MCP tools for Homebox reporting (`/v1/reporting/bill-of-materials`),
  * group statistics (`/v1/groups/statistics`), and entity attachment metadata.
@@ -33,10 +27,7 @@ export function registerReportingTools(
     },
     async ({ tenant }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request("/api/v1/reporting/bill-of-materials", {
-            tenant,
-          }),
+        () => homeboxClient.getBillOfMaterials(tenant),
         onUnauthorized,
       ),
   );
@@ -52,7 +43,7 @@ export function registerReportingTools(
     },
     async ({ tenant }) =>
       runHomeboxTool(
-        () => homeboxClient.request("/api/v1/groups/statistics", { tenant }),
+        () => homeboxClient.getGroupStatistics(tenant),
         onUnauthorized,
       ),
   );
@@ -69,11 +60,7 @@ export function registerReportingTools(
     },
     async ({ entityId, tenant }) =>
       runHomeboxTool(async () => {
-        const entity =
-          await homeboxClient.request<HomeboxEntityWithAttachments>(
-            `/api/v1/entities/${encodeURIComponent(entityId)}`,
-            { tenant },
-          );
+        const entity = await homeboxClient.getEntity(entityId, tenant);
         return {
           entityId: entity.id ?? entityId,
           entityName: entity.name ?? null,

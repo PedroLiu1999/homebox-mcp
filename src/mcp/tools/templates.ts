@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
+  customFieldSchema,
   idSchema,
   runHomeboxTool,
   tenantSchema,
@@ -13,15 +14,6 @@ const entityTypeBodyFields = {
   icon: z.string().optional().describe("Optional icon name"),
 };
 
-const templateFieldSchema = z.object({
-  name: z.string().min(1),
-  type: z.string().min(1),
-  textValue: z.string().optional(),
-  numberValue: z.number().optional(),
-  booleanValue: z.boolean().optional(),
-  timeValue: z.string().optional(),
-});
-
 const templateBodyFields = {
   name: z.string().min(1).describe("Template name"),
   description: z.string().optional().describe("Optional template description"),
@@ -30,7 +22,7 @@ const templateBodyFields = {
   modelNumber: z.string().optional().describe("Default model number"),
   defaultLocationId: z.string().optional().describe("Default location ID"),
   defaultLabelIds: z.array(z.string()).optional().describe("Default tag/label IDs"),
-  fields: z.array(templateFieldSchema).optional().describe("Custom fields"),
+  fields: z.array(customFieldSchema).optional().describe("Custom fields"),
   includePurchaseInformation: z
     .boolean()
     .optional()
@@ -61,7 +53,7 @@ export function registerTemplateTools(
     },
     async ({ tenant }) =>
       runHomeboxTool(
-        () => homeboxClient.request("/api/v1/entity-types", { tenant }),
+        () => homeboxClient.listEntityTypes(tenant),
         onUnauthorized,
       ),
   );
@@ -77,12 +69,7 @@ export function registerTemplateTools(
     },
     async ({ tenant, ...body }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request("/api/v1/entity-types", {
-            method: "POST",
-            tenant,
-            body,
-          }),
+        () => homeboxClient.createEntityType(body, tenant),
         onUnauthorized,
       ),
   );
@@ -99,15 +86,7 @@ export function registerTemplateTools(
     },
     async ({ id, tenant, ...body }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request(
-            `/api/v1/entity-types/${encodeURIComponent(id)}`,
-            {
-              method: "PUT",
-              tenant,
-              body,
-            },
-          ),
+        () => homeboxClient.updateEntityType(id, body, tenant),
         onUnauthorized,
       ),
   );
@@ -123,14 +102,7 @@ export function registerTemplateTools(
     },
     async ({ id, tenant }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request(
-            `/api/v1/entity-types/${encodeURIComponent(id)}`,
-            {
-              method: "DELETE",
-              tenant,
-            },
-          ),
+        () => homeboxClient.deleteEntityType(id, tenant),
         onUnauthorized,
       ),
   );
@@ -144,10 +116,7 @@ export function registerTemplateTools(
       },
     },
     async ({ tenant }) =>
-      runHomeboxTool(
-        () => homeboxClient.request("/api/v1/templates", { tenant }),
-        onUnauthorized,
-      ),
+      runHomeboxTool(() => homeboxClient.listTemplates(tenant), onUnauthorized),
   );
 
   server.registerTool(
@@ -161,10 +130,7 @@ export function registerTemplateTools(
     },
     async ({ id, tenant }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request(`/api/v1/templates/${encodeURIComponent(id)}`, {
-            tenant,
-          }),
+        () => homeboxClient.getTemplate(id, tenant),
         onUnauthorized,
       ),
   );
@@ -180,12 +146,7 @@ export function registerTemplateTools(
     },
     async ({ tenant, ...body }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request("/api/v1/templates", {
-            method: "POST",
-            tenant,
-            body,
-          }),
+        () => homeboxClient.createTemplate(body, tenant),
         onUnauthorized,
       ),
   );
@@ -202,12 +163,7 @@ export function registerTemplateTools(
     },
     async ({ id, tenant, ...body }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request(`/api/v1/templates/${encodeURIComponent(id)}`, {
-            method: "PUT",
-            tenant,
-            body,
-          }),
+        () => homeboxClient.updateTemplate(id, body, tenant),
         onUnauthorized,
       ),
   );
@@ -223,11 +179,7 @@ export function registerTemplateTools(
     },
     async ({ id, tenant }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request(`/api/v1/templates/${encodeURIComponent(id)}`, {
-            method: "DELETE",
-            tenant,
-          }),
+        () => homeboxClient.deleteTemplate(id, tenant),
         onUnauthorized,
       ),
   );
@@ -251,7 +203,7 @@ export function registerTemplateTools(
           .optional()
           .describe("Override tag/label IDs"),
         fields: z
-          .array(templateFieldSchema)
+          .array(customFieldSchema)
           .optional()
           .describe("Override custom fields"),
         tenant: tenantSchema,
@@ -259,15 +211,7 @@ export function registerTemplateTools(
     },
     async ({ id, tenant, ...body }) =>
       runHomeboxTool(
-        () =>
-          homeboxClient.request(
-            `/api/v1/templates/${encodeURIComponent(id)}/create-item`,
-            {
-              method: "POST",
-              tenant,
-              body,
-            },
-          ),
+        () => homeboxClient.createItemFromTemplate(id, body, tenant),
         onUnauthorized,
       ),
   );

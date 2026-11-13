@@ -18,6 +18,15 @@ export const idSchema = z
   .min(1)
   .describe("Homebox resource identifier");
 
+export const customFieldSchema = z.object({
+  name: z.string().min(1),
+  type: z.string().min(1),
+  textValue: z.string().optional(),
+  numberValue: z.number().optional(),
+  booleanValue: z.boolean().optional(),
+  timeValue: z.string().optional(),
+});
+
 export async function runHomeboxTool(
   fn: () => Promise<unknown>,
   onUnauthorized?: () => void,
