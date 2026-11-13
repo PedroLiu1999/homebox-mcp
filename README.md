@@ -4,6 +4,15 @@
 
 <h1 align="center">Homebox MCP Server</h1>
 
+<p align="center">
+  <a href="https://github.com/PedroLiu1999/homebox-mcp/actions/workflows/ci.yml"><img src="https://github.com/PedroLiu1999/homebox-mcp/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/PedroLiu1999/homebox-mcp/releases/latest"><img src="https://img.shields.io/github/v/release/PedroLiu1999/homebox-mcp?label=release" alt="Latest Release" /></a>
+  <a href="https://github.com/PedroLiu1999/homebox-mcp/pkgs/container/homebox-mcp"><img src="https://img.shields.io/badge/ghcr.io-homebox--mcp-2496ED?logo=docker&logoColor=white" alt="GHCR Image" /></a>
+  <img src="https://img.shields.io/badge/node-24%2B-339933?logo=node.js&logoColor=white" alt="Node.js 24+" />
+  <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/MCP-OAuth%202.1%20%2B%20Streamable%20HTTP-6366F1" alt="MCP OAuth 2.1" />
+</p>
+
 An MCP (Model Context Protocol) server for [Homebox](https://github.com/sysadminsmedia/homebox) over Streamable HTTP with an **embedded OAuth 2.1 Authorization Server and Resource Server**.
 
 Remote MCP clients (such as Claude, Cursor, and other OAuth 2.1-capable clients) can discover OAuth metadata, register dynamically (DCR), and authorize via PKCE (`S256`) using either:
