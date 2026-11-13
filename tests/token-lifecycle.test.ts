@@ -51,11 +51,15 @@ async function completeOAuthFlow(
     `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=state1`,
   );
   expect(authRes.status).toBe(200);
+  const cookie = authRes.headers.get("set-cookie")!.split(";")[0]!.trim();
   const { requestId, csrfToken } = extractFormFields(await authRes.text());
 
   const loginRes = await fetch(`${harness.baseUrl}/authorize/login`, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      cookie,
+    },
     redirect: "manual",
     body: new URLSearchParams({
       request_id: requestId,

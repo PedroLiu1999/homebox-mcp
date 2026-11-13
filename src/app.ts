@@ -71,6 +71,7 @@ export function createApp(config: AppConfig): Express {
     store,
     homeboxUrl: config.homeboxUrl,
     encryptionKey,
+    isHttps: issuerUrl.protocol === "https:",
   });
   const resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(issuerUrl);
 

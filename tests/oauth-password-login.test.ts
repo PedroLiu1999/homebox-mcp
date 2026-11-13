@@ -4,6 +4,13 @@ import type { IncomingMessage } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { startTestServer, type TestHarness } from "./helpers/test-server.js";
 
+function extractCookiePair(setCookieHeader: string | null): string {
+  if (!setCookieHeader) {
+    throw new Error("Missing Set-Cookie header from GET /authorize");
+  }
+  return setCookieHeader.split(";")[0]!.trim();
+}
+
 function extractFormFields(html: string): {
   requestId: string;
   csrfToken: string;
@@ -74,7 +81,16 @@ describe("OAuth 2.1 username/password login with automatic API key minting", () 
       `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent("http://127.0.0.1:9999/callback")}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=s1`,
     );
     expect(authRes.status).toBe(200);
+    const setCookie = authRes.headers.get("set-cookie");
+    expect(setCookie).toBeTruthy();
+    expect(setCookie).toContain("HttpOnly");
+    expect(setCookie).toContain("SameSite=Lax");
+    expect(setCookie).toContain("Path=/authorize");
+    expect(setCookie).not.toContain("Secure");
+
     const html = await authRes.text();
+    const form = extractFormFields(html);
+    expect(setCookie).toContain(form.csrfToken);
 
     expect(html).toContain('action="/authorize/login"');
     expect(html).toContain('name="request_id"');
@@ -82,6 +98,25 @@ describe("OAuth 2.1 username/password login with automatic API key minting", () 
     expect(html).toContain('name="username"');
     expect(html).toContain('name="password"');
     expect(html).toContain('name="api_key"');
+  });
+
+  it("GET /authorize sets Secure on the CSRF cookie when mcpPublicUrl uses https://", async () => {
+    harness = await startTestServer({
+      mcpPublicUrl: "https://mcp.example.com",
+    });
+    const { client_id } = await registerTestClient(harness.baseUrl);
+    const { challenge } = createPkcePair();
+
+    const authRes = await fetch(
+      `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent("http://127.0.0.1:9999/callback")}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=s1`,
+    );
+    expect(authRes.status).toBe(200);
+    const setCookie = authRes.headers.get("set-cookie");
+    expect(setCookie).toBeTruthy();
+    expect(setCookie).toContain("HttpOnly");
+    expect(setCookie).toContain("SameSite=Lax");
+    expect(setCookie).toContain("Path=/authorize");
+    expect(setCookie).toContain("Secure");
   });
 
   it("POST /authorize/login with username/password logs into Homebox, mints an API key named after the MCP client, and completes PKCE token exchange without persisting password or session token", async () => {
@@ -146,11 +181,15 @@ describe("OAuth 2.1 username/password login with automatic API key minting", () 
       `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=pw-state`,
     );
     expect(authRes.status).toBe(200);
+    const cookie = extractCookiePair(authRes.headers.get("set-cookie"));
     const form = extractFormFields(await authRes.text());
 
     const loginRes = await fetch(`${harness.baseUrl}/authorize/login`, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie,
+      },
       redirect: "manual",
       body: new URLSearchParams({
         request_id: form.requestId,
@@ -234,11 +273,15 @@ describe("OAuth 2.1 username/password login with automatic API key minting", () 
     const authRes = await fetch(
       `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=retry-state`,
     );
+    const cookie = extractCookiePair(authRes.headers.get("set-cookie"));
     const form1 = extractFormFields(await authRes.text());
 
     const invalidRes = await fetch(`${harness.baseUrl}/authorize/login`, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie,
+      },
       redirect: "manual",
       body: new URLSearchParams({
         request_id: form1.requestId,
@@ -258,11 +301,14 @@ describe("OAuth 2.1 username/password login with automatic API key minting", () 
     expect(errHtml).toContain('name="username"');
     expect(errHtml).toContain('name="password"');
 
-    // Retry with valid credentials using the re-rendered form
+    // Retry with valid credentials using the re-rendered form and original cookie
     const form2 = extractFormFields(errHtml);
     const retryRes = await fetch(`${harness.baseUrl}/authorize/login`, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie,
+      },
       redirect: "manual",
       body: new URLSearchParams({
         request_id: form2.requestId,
@@ -313,12 +359,16 @@ describe("OAuth 2.1 username/password login with automatic API key minting", () 
     const authRes = await fetch(
       `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256`,
     );
+    const cookie = extractCookiePair(authRes.headers.get("set-cookie"));
     const form = extractFormFields(await authRes.text());
 
     // Empty submission -> 400 HTML error
     const emptyRes = await fetch(`${harness.baseUrl}/authorize/login`, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie,
+      },
       redirect: "manual",
       body: new URLSearchParams({
         request_id: form.requestId,
@@ -334,7 +384,10 @@ describe("OAuth 2.1 username/password login with automatic API key minting", () 
     const form2 = extractFormFields(emptyHtml);
     const mintFailRes = await fetch(`${harness.baseUrl}/authorize/login`, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie,
+      },
       redirect: "manual",
       body: new URLSearchParams({
         request_id: form2.requestId,
@@ -347,5 +400,54 @@ describe("OAuth 2.1 username/password login with automatic API key minting", () 
     expect(mintFailRes.headers.get("location")).toBeNull();
     const mintFailHtml = await mintFailRes.text();
     expect(mintFailHtml).toContain("failed to mint an API key");
+  });
+
+  it("POST /authorize/login rejects missing or mismatched CSRF cookie with 403 even when request_id and csrf_token match", async () => {
+    harness = await startTestServer();
+    const redirectUri = "http://127.0.0.1:9999/callback";
+    const { client_id } = await registerTestClient(
+      harness.baseUrl,
+      "Test Client",
+      redirectUri,
+    );
+    const { challenge } = createPkcePair();
+
+    const authRes = await fetch(
+      `${harness.baseUrl}/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256`,
+    );
+    expect(authRes.status).toBe(200);
+    const cookie = extractCookiePair(authRes.headers.get("set-cookie"));
+    const cookieName = cookie.split("=")[0]!;
+    const form = extractFormFields(await authRes.text());
+
+    const missingCookieRes = await fetch(`${harness.baseUrl}/authorize/login`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      redirect: "manual",
+      body: new URLSearchParams({
+        request_id: form.requestId,
+        csrf_token: form.csrfToken,
+        api_key: "hb_test_key",
+      }),
+    });
+    expect(missingCookieRes.status).toBe(403);
+
+    const mismatchedCookieRes = await fetch(
+      `${harness.baseUrl}/authorize/login`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          cookie: `${cookieName}=wrong-csrf-cookie-value`,
+        },
+        redirect: "manual",
+        body: new URLSearchParams({
+          request_id: form.requestId,
+          csrf_token: form.csrfToken,
+          api_key: "hb_test_key",
+        }),
+      },
+    );
+    expect(mismatchedCookieRes.status).toBe(403);
   });
 });
