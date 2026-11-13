@@ -1,68 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
-import { HomeboxApiError, type HomeboxClient } from "../homebox/client.js";
+import type { HomeboxClient } from "../homebox/client.js";
+import { registerMaintenanceTools } from "./tools/maintenance.js";
+import { registerReportingTools } from "./tools/reporting.js";
+import { runHomeboxTool, tenantSchema } from "./tools/shared.js";
+import { registerTagTools } from "./tools/tags.js";
+import { registerTemplateTools } from "./tools/templates.js";
 
 export interface CreateHomeboxMcpServerOptions {
   homeboxClient: HomeboxClient;
   onUnauthorized?: () => void;
-}
-
-const tenantSchema = z
-  .string()
-  .min(1)
-  .optional()
-  .describe("Optional Homebox group/tenant ID sent via X-Tenant header");
-
-async function runHomeboxTool(
-  fn: () => Promise<unknown>,
-  onUnauthorized?: () => void,
-): Promise<CallToolResult> {
-  try {
-    const data = await fn();
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(data, null, 2),
-        },
-      ],
-    };
-  } catch (err) {
-    if (err instanceof HomeboxApiError) {
-      if (err.status === 401) {
-        onUnauthorized?.();
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: "Homebox authentication failed (401 Unauthorized): your Homebox API key may have been revoked or expired. Please re-authenticate.",
-            },
-          ],
-        };
-      }
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: err.message,
-          },
-        ],
-      };
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return {
-      isError: true,
-      content: [
-        {
-          type: "text",
-          text: `Homebox request failed: ${message}`,
-        },
-      ],
-    };
-  }
 }
 
 export function createHomeboxMcpServer(
@@ -100,6 +46,12 @@ export function createHomeboxMcpServer(
     async ({ tenant }) =>
       runHomeboxTool(() => homeboxClient.listGroups(tenant), onUnauthorized),
   );
+
+  const ctx = { homeboxClient, onUnauthorized };
+  registerTagTools(server, ctx);
+  registerTemplateTools(server, ctx);
+  registerMaintenanceTools(server, ctx);
+  registerReportingTools(server, ctx);
 
   return server;
 }
