@@ -162,11 +162,38 @@ export function createAppRuntime(
     res.status(200).json({ status: "ok" });
   });
 
+  app.get("/", (_req, res) => {
+    res.type("text/html; charset=utf-8").send(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Homebox MCP Server</title>
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1E2A23" />
+  <meta property="og:title" content="Homebox MCP Server" />
+  <meta property="og:image" content="${issuerUrl.origin}/logo.png" />
+</head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:460px;margin:48px auto;padding:0 16px;color:#111827;">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+    <img src="/logo.svg" alt="Homebox MCP" width="40" height="40" />
+    <span style="font-weight:700;font-size:1.25rem;color:#111827;">Homebox <span style="font-weight:400;color:#567f67;">MCP</span></span>
+  </div>
+  <p style="color:#4b5563;margin:0;">Homebox Model Context Protocol server with embedded OAuth 2.1. Connect an MCP client to <code>/mcp</code>.</p>
+</body>
+</html>`);
+  });
+
   for (const asset of BRAND_ASSET_ROUTES) {
     const filePath = path.join(LOGO_ASSETS_DIR, asset.relativePath);
     app.get(asset.route, (_req, res, next) => {
       res.type(asset.contentType);
       res.set("Cache-Control", "public, max-age=86400");
+      res.set("Cross-Origin-Resource-Policy", "cross-origin");
+      res.set("Access-Control-Allow-Origin", "*");
       res.sendFile(filePath, (err) => {
         if (err) {
           next(err);

@@ -106,9 +106,23 @@ describe("MCP logo, favicon, and webmanifest assets", () => {
         expectedType,
       );
       expect(res.headers.get("cache-control")).toBe("public, max-age=86400");
+      expect(res.headers.get("cross-origin-resource-policy")).toBe(
+        "cross-origin",
+      );
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
       const bytes = await res.arrayBuffer();
       expect(bytes.byteLength, `body for ${route}`).toBeGreaterThan(0);
     }
+
+    const rootRes = await fetch(`${harness.baseUrl}/`);
+    expect(rootRes.status).toBe(200);
+    expect(rootRes.headers.get("content-type")).toContain("text/html");
+    const rootHtml = await rootRes.text();
+    expect(rootHtml).toContain('<link rel="icon" href="/favicon.ico"');
+    expect(rootHtml).toContain('<link rel="icon" href="/favicon.svg"');
+    expect(rootHtml).toContain(
+      `<meta property="og:image" content="${harness.baseUrl}/logo.png"`,
+    );
   });
 
   it("renders favicon links and logo on the OAuth authorize page and exposes MCP server icons", async () => {
