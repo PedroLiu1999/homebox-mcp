@@ -15,10 +15,17 @@ export class HomeboxApiError extends Error {
   }
 }
 
+export type HomeboxQueryValue =
+  | string
+  | number
+  | boolean
+  | readonly string[]
+  | undefined;
+
 export interface HomeboxRequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   tenant?: string;
-  query?: Record<string, string | number | boolean | undefined>;
+  query?: Record<string, HomeboxQueryValue>;
   body?: unknown;
 }
 
@@ -41,7 +48,14 @@ export class HomeboxClient {
     const url = new URL(path, this.baseUrl);
     if (options.query) {
       for (const [key, value] of Object.entries(options.query)) {
-        if (value !== undefined) {
+        if (value === undefined) {
+          continue;
+        }
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            url.searchParams.append(key, String(item));
+          }
+        } else {
           url.searchParams.set(key, String(value));
         }
       }
@@ -98,6 +112,97 @@ export class HomeboxClient {
 
   listGroups(tenant?: string): Promise<unknown> {
     return this.request("/api/v1/groups/all", { tenant });
+  }
+
+  listEntities(
+    params: {
+      q?: string;
+      page?: number;
+      pageSize?: number;
+      labels?: string[];
+      locations?: string[];
+      parentIds?: string[];
+      entityType?: string;
+      assetId?: string;
+      orderBy?: string;
+      includeArchived?: boolean;
+      tenant?: string;
+    } = {},
+  ): Promise<unknown> {
+    const { tenant, ...query } = params;
+    return this.request("/api/v1/entities", { tenant, query });
+  }
+
+  getEntity(id: string, tenant?: string): Promise<unknown> {
+    return this.request(`/api/v1/entities/${encodeURIComponent(id)}`, {
+      tenant,
+    });
+  }
+
+  createEntity(
+    body: Record<string, unknown>,
+    tenant?: string,
+  ): Promise<unknown> {
+    return this.request("/api/v1/entities", {
+      method: "POST",
+      body,
+      tenant,
+    });
+  }
+
+  updateEntity(
+    id: string,
+    body: Record<string, unknown>,
+    tenant?: string,
+  ): Promise<unknown> {
+    return this.request(`/api/v1/entities/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body,
+      tenant,
+    });
+  }
+
+  patchEntity(
+    id: string,
+    body: Record<string, unknown>,
+    tenant?: string,
+  ): Promise<unknown> {
+    return this.request(`/api/v1/entities/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body,
+      tenant,
+    });
+  }
+
+  deleteEntity(id: string, tenant?: string): Promise<unknown> {
+    return this.request(`/api/v1/entities/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      tenant,
+    });
+  }
+
+  getEntityTree(
+    params: { withItems?: boolean; tenant?: string } = {},
+  ): Promise<unknown> {
+    const { tenant, ...query } = params;
+    return this.request("/api/v1/entities/tree", { tenant, query });
+  }
+
+  getEntityPath(id: string, tenant?: string): Promise<unknown> {
+    return this.request(`/api/v1/entities/${encodeURIComponent(id)}/path`, {
+      tenant,
+    });
+  }
+
+  getEntityFields(tenant?: string): Promise<unknown> {
+    return this.request("/api/v1/entities/fields", { tenant });
+  }
+
+  getEntityFieldValues(
+    params: { field?: string; tenant?: string } = {},
+  ): Promise<unknown> {
+    const { tenant, ...query } = params;
+    return this.request("/api/v1/entities/fields/values", { tenant, query });
   }
 }
 
