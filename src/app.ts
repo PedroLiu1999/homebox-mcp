@@ -7,19 +7,35 @@ import {
   mcpAuthRouter,
 } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import type { AppConfig } from "./config.js";
+import { parseEncryptionKey } from "./crypto.js";
 import { HomeboxOAuthProvider } from "./oauth/provider.js";
+import { SqliteStore } from "./storage/sqlite.js";
 
 export function createApp(config: AppConfig): Express {
   const app = express();
   app.use(express.json());
 
   const issuerUrl = new URL(config.mcpPublicUrl);
-  const provider = new HomeboxOAuthProvider();
+  const store = new SqliteStore(config.databasePath);
+  const encryptionKey = parseEncryptionKey(config.tokenEncryptionKey);
+  const provider = new HomeboxOAuthProvider({
+    store,
+    homeboxUrl: config.homeboxUrl,
+    encryptionKey,
+  });
   const resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(issuerUrl);
 
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok" });
   });
+
+  app.post(
+    "/authorize/login",
+    express.urlencoded({ extended: false }),
+    (req, res, next) => {
+      void provider.handleAuthorizeLogin(req, res).catch(next);
+    },
+  );
 
   app.use(
     mcpAuthRouter({
