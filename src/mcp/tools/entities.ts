@@ -4,7 +4,7 @@ import {
   runHomeboxTool,
   tenantSchema,
   type ToolRegistrationContext,
-} from "./common.js";
+} from "./shared.js";
 
 const entityMutableFieldsSchema = {
   description: z.string().optional().describe("Entity description"),

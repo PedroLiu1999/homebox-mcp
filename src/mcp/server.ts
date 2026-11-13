@@ -1,7 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { HomeboxClient } from "../homebox/client.js";
-import { runHomeboxTool, tenantSchema } from "./tools/common.js";
 import { registerEntityTools } from "./tools/entities.js";
+import { registerMaintenanceTools } from "./tools/maintenance.js";
+import { registerReportingTools } from "./tools/reporting.js";
+import { runHomeboxTool, tenantSchema } from "./tools/shared.js";
+import { registerTagTools } from "./tools/tags.js";
+import { registerTemplateTools } from "./tools/templates.js";
 
 export interface CreateHomeboxMcpServerOptions {
   homeboxClient: HomeboxClient;
@@ -44,7 +48,12 @@ export function createHomeboxMcpServer(
       runHomeboxTool(() => homeboxClient.listGroups(tenant), onUnauthorized),
   );
 
-  registerEntityTools(server, { homeboxClient, onUnauthorized });
+  const ctx = { homeboxClient, onUnauthorized };
+  registerEntityTools(server, ctx);
+  registerTagTools(server, ctx);
+  registerTemplateTools(server, ctx);
+  registerMaintenanceTools(server, ctx);
+  registerReportingTools(server, ctx);
 
   return server;
 }

@@ -13,17 +13,26 @@ export const tenantSchema = z
   .optional()
   .describe("Optional Homebox group/tenant ID sent via X-Tenant header");
 
+export const idSchema = z
+  .string()
+  .min(1)
+  .describe("Homebox resource identifier");
+
 export async function runHomeboxTool(
   fn: () => Promise<unknown>,
   onUnauthorized?: () => void,
 ): Promise<CallToolResult> {
   try {
     const data = await fn();
+    const text =
+      data === undefined
+        ? JSON.stringify({ ok: true })
+        : JSON.stringify(data, null, 2);
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify(data ?? { ok: true }, null, 2),
+          text,
         },
       ],
     };
