@@ -325,6 +325,7 @@ export class SqliteStore {
 
   getActiveAccessToken(tokenHash: string, now: number):
     | {
+        grantId: string;
         clientId: string;
         scopes: string[];
         expiresAt: number;
@@ -333,7 +334,7 @@ export class SqliteStore {
     | undefined {
     const row = this.db
       .prepare(
-        `SELECT g.client_id, g.scopes_json, t.expires_at, g.encrypted_homebox_key
+        `SELECT g.id AS grant_id, g.client_id, g.scopes_json, t.expires_at, g.encrypted_homebox_key
          FROM oauth_access_tokens t
          JOIN oauth_grants g ON g.id = t.grant_id
          WHERE t.token_hash = ?
@@ -343,6 +344,7 @@ export class SqliteStore {
       )
       .get(tokenHash, now) as
       | {
+          grant_id: string;
           client_id: string;
           scopes_json: string;
           expires_at: number;
@@ -355,11 +357,161 @@ export class SqliteStore {
     }
 
     return {
+      grantId: row.grant_id,
       clientId: row.client_id,
       scopes: JSON.parse(row.scopes_json) as string[],
       expiresAt: row.expires_at,
       encryptedHomeboxKey: row.encrypted_homebox_key,
     };
+  }
+
+  revokeGrant(grantId: string, now: number): void {
+    this.db
+      .prepare(
+        `UPDATE oauth_grants
+         SET revoked_at = ?
+         WHERE id = ? AND revoked_at IS NULL`,
+      )
+      .run(now, grantId);
+  }
+
+  rotateRefreshToken(params: {
+    oldRefreshTokenHash: string;
+    clientId: string;
+    newAccessTokenHash: string;
+    newAccessTokenExpiresAt: number;
+    newRefreshTokenHash: string;
+    newRefreshTokenExpiresAt: number;
+    now: number;
+  }): { grantId: string; scopes: string[] } | undefined {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const row = this.db
+        .prepare(
+          `SELECT r.grant_id, r.expires_at, r.used_at, r.revoked_at,
+                  g.client_id, g.scopes_json, g.revoked_at AS grant_revoked_at
+           FROM oauth_refresh_tokens r
+           JOIN oauth_grants g ON g.id = r.grant_id
+           WHERE r.token_hash = ?`,
+        )
+        .get(params.oldRefreshTokenHash) as
+        | {
+            grant_id: string;
+            expires_at: number;
+            used_at: number | null;
+            revoked_at: number | null;
+            client_id: string;
+            scopes_json: string;
+            grant_revoked_at: number | null;
+          }
+        | undefined;
+
+      if (
+        !row ||
+        row.client_id !== params.clientId ||
+        row.used_at !== null ||
+        row.revoked_at !== null ||
+        row.grant_revoked_at !== null ||
+        row.expires_at <= params.now
+      ) {
+        this.db.exec("ROLLBACK");
+        return undefined;
+      }
+
+      const updateResult = this.db
+        .prepare(
+          `UPDATE oauth_refresh_tokens
+           SET used_at = ?
+           WHERE token_hash = ? AND used_at IS NULL`,
+        )
+        .run(params.now, params.oldRefreshTokenHash);
+
+      if (Number(updateResult.changes) !== 1) {
+        this.db.exec("ROLLBACK");
+        return undefined;
+      }
+
+      this.db
+        .prepare(
+          `INSERT INTO oauth_access_tokens (token_hash, grant_id, expires_at, revoked_at)
+           VALUES (?, ?, ?, NULL)`,
+        )
+        .run(
+          params.newAccessTokenHash,
+          row.grant_id,
+          params.newAccessTokenExpiresAt,
+        );
+
+      this.db
+        .prepare(
+          `INSERT INTO oauth_refresh_tokens (token_hash, grant_id, expires_at, used_at, revoked_at)
+           VALUES (?, ?, ?, NULL, NULL)`,
+        )
+        .run(
+          params.newRefreshTokenHash,
+          row.grant_id,
+          params.newRefreshTokenExpiresAt,
+        );
+
+      this.db.exec("COMMIT");
+      return {
+        grantId: row.grant_id,
+        scopes: JSON.parse(row.scopes_json) as string[],
+      };
+    } catch (err) {
+      this.db.exec("ROLLBACK");
+      throw err;
+    }
+  }
+
+  revokeToken(
+    tokenHash: string,
+    clientId: string,
+    now: number,
+    hint?: string,
+  ): void {
+    const revokeAccess = (): number => {
+      const res = this.db
+        .prepare(
+          `UPDATE oauth_access_tokens
+           SET revoked_at = ?
+           WHERE token_hash = ?
+             AND revoked_at IS NULL
+             AND grant_id IN (SELECT id FROM oauth_grants WHERE client_id = ?)`,
+        )
+        .run(now, tokenHash, clientId);
+      return Number(res.changes);
+    };
+
+    const revokeRefresh = (): number => {
+      const res = this.db
+        .prepare(
+          `UPDATE oauth_refresh_tokens
+           SET revoked_at = ?
+           WHERE token_hash = ?
+             AND revoked_at IS NULL
+             AND grant_id IN (SELECT id FROM oauth_grants WHERE client_id = ?)`,
+        )
+        .run(now, tokenHash, clientId);
+      return Number(res.changes);
+    };
+
+    if (hint === "access_token") {
+      if (revokeAccess() === 0) {
+        revokeRefresh();
+      }
+      return;
+    }
+
+    if (hint === "refresh_token") {
+      if (revokeRefresh() === 0) {
+        revokeAccess();
+      }
+      return;
+    }
+
+    revokeAccess();
+    revokeRefresh();
   }
 
   close(): void {

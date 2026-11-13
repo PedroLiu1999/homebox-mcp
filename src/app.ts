@@ -1,5 +1,4 @@
 import express, { type Express } from "express";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
 import {
@@ -8,6 +7,8 @@ import {
 } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import type { AppConfig } from "./config.js";
 import { parseEncryptionKey } from "./crypto.js";
+import { HomeboxClient } from "./homebox/client.js";
+import { createHomeboxMcpServer } from "./mcp/server.js";
 import { HomeboxOAuthProvider } from "./oauth/provider.js";
 import { SqliteStore } from "./storage/sqlite.js";
 
@@ -52,9 +53,22 @@ export function createApp(config: AppConfig): Express {
   });
 
   app.all("/mcp", bearerAuth, async (req, res) => {
-    const server = new McpServer({
-      name: "homebox-mcp",
-      version: "0.1.0",
+    const extra = req.auth?.extra as
+      | { homeboxApiKey?: string; grantId?: string }
+      | undefined;
+    const homeboxApiKey = extra?.homeboxApiKey;
+    const grantId = extra?.grantId;
+    if (!homeboxApiKey) {
+      res.status(401).json({ error: "invalid_token" });
+      return;
+    }
+
+    const homeboxClient = new HomeboxClient(config.homeboxUrl, homeboxApiKey);
+    const server = createHomeboxMcpServer({
+      homeboxClient,
+      onUnauthorized: grantId
+        ? () => store.revokeGrant(grantId, Math.floor(Date.now() / 1000))
+        : undefined,
     });
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
