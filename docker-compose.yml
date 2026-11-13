@@ -1,0 +1,30 @@
+services:
+  homebox-mcp:
+    # Set IMAGE in .env to your GHCR repository, e.g. ghcr.io/your-user/homebox-mcp:latest
+    image: ${IMAGE:-ghcr.io/owner/homebox-mcp:latest}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    environment:
+      PORT: ${PORT:-3000}
+      HOMEBOX_URL: ${HOMEBOX_URL:?HOMEBOX_URL is required}
+      MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-http://localhost:3000}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:?TOKEN_ENCRYPTION_KEY is required}
+      DATABASE_PATH: /data/homebox-mcp.db
+    volumes:
+      - homebox_mcp_data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/health').then((r) => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  homebox_mcp_data:
